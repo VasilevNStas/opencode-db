@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.backends._legacy._Backend"
+
+[project]
+name = "opencode-db"
+version = "0.1.0"
+description = "OpenCode database manager"
+requires-python = ">=3.12"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+per-file-ignores = {"__init__.py" = ["E402"], "__main__.py" = ["E402"]}
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "YTT", # flake8-2020
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "T20", # flake8-print
+    "RUF", # ruff-specific
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "E266",  # too many leading `#` for block comment
+    "N815",  # mixed case variable in class scope (sqlite3.Row)
+    "N999",  # invalid module name (__init__ is fine)
+    "T201",  # allow print (CLI tool)
+    "RUF001", # string contains ambiguous character
+    "RUF002", # docstring contains ambiguous char (Russian docs intentional)
+    "RUF003", # comment contains ambiguous character
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.black]
+target-version = ["py312"]
+line-length = 100
+skip-magic-trailing-comma = false
+
+[tool.mypy]
+python_version = "3.12"
+strict = false
+ignore_missing_imports = true
+check_untyped_defs = false
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+[[tool.mypy.overrides]]
+module = "commands.*"
+ignore_errors = true

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "command": {
+    "db": {
+      "template": "!`opencode-db {{input}} --json`\n\nThe output above is from the opencode-db tool. Present the data clearly. If it's a list, format it as a table. Keep the response concise.",
+      "description": "OpenCode database: list, info, stats, costs, search, etc. Usage: /db list --limit 5, /db info <id>, /db costs --total, /db stats",
+      "agent": "explore",
+      "model": "deepseek/deepseek-chat"
+    },
+    "db-full": {
+      "template": "!`opencode-db {{input}} --full --json`\n\nThe output above is from the opencode-db tool in full mode (no truncation). Present the data clearly.",
+      "description": "Same as /db but with full output (no truncation). Usage: /db-full export --latest",
+      "agent": "explore",
+      "model": "deepseek/deepseek-chat"
+    }
+  }
+}
