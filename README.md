@@ -676,6 +676,8 @@ python3 -m opencode_db list
 
 ---
 
-## License
+## Лицензия / License
 
-MIT. Use freely. Free forever. Go build something.
+MIT — подробнее в файле [LICENSE](LICENSE)
+
+© 2026 Vasilev Stas — код можно свободно использовать, изменять и распространять
