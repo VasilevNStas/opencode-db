@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "opencode-db"
 version = "0.4.4"
 description = "OpenCode database CLI manager — browse, export, analyze, clean up sessions"
-readme = "README.md"
+readme = "README_PYPI.md"
 requires-python = ">=3.12"
 
 [project.urls]
