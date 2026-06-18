@@ -1,5 +1,11 @@
 # opencode-db
 
+[![test](https://github.com/VasilevNStas/opencode-db/actions/workflows/test.yml/badge.svg)](https://github.com/VasilevNStas/opencode-db/actions/workflows/test.yml)
+[![release](https://github.com/VasilevNStas/opencode-db/actions/workflows/release.yml/badge.svg)](https://github.com/VasilevNStas/opencode-db/actions/workflows/release.yml)
+[![PyPI](https://img.shields.io/pypi/v/opencode-db)](https://pypi.org/project/opencode-db/)
+[![Python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 **OpenCode database manager: browse, export, analyze, and clean up sessions.**
 
 `opencode-db` is a CLI utility that connects to OpenCode's local SQLite database and lets you inspect your agent sessions, export conversations to Markdown, track token usage and costs, and manage storage by deleting old sessions or optimizing the database.
@@ -18,24 +24,34 @@ opencode-db costs --total  # total token costs
 
 ### Requirements
 
-- Python 3.10+
+- Python 3.12+
 - OpenCode (must have been run at least once — the database is created automatically)
 - macOS / Linux
 
-### Quick install
+### One-command install (recommended)
 
 ```bash
-git clone https://github.com/VasilevNStas/opencode-db.git ~/.local/share/opencode-db
-ln -s ~/.local/share/opencode-db/bin/opencode-db ~/.local/bin/opencode-db
+curl -fsSL https://raw.githubusercontent.com/VasilevNStas/opencode-db/master/install.sh | sh
 ```
+
+Downloads everything to `~/.local/share/opencode-db/` and creates `~/.local/bin/opencode-db`.
+
+### pip / pipx install
+
+```bash
+pipx install opencode-db
+# or
+pip install opencode-db
+```
+
+[Zero external dependencies](https://treyhunner.com/2015/12/python-imports-and-path-manipulation/) — pure Python standard library only.
 
 ### Manual install
 
-1. Copy the project files to `~/.local/share/opencode-db/`:
+1. Download the latest release from GitHub or clone the repo:
 
 ```bash
-mkdir -p ~/.local/share/opencode-db
-# copy all files into this directory
+git clone https://github.com/VasilevNStas/opencode-db.git ~/.local/share/opencode-db
 ```
 
 2. Create a launcher at `~/.local/bin/opencode-db`:
@@ -43,7 +59,6 @@ mkdir -p ~/.local/share/opencode-db
 ```bash
 cat > ~/.local/bin/opencode-db << 'SCRIPT'
 #!/usr/bin/env python3
-"""opencode-db launcher."""
 import sys, os
 PKG_DIR = os.path.expanduser("~/.local/share/opencode-db")
 if PKG_DIR not in sys.path:
@@ -560,7 +575,7 @@ A ready-to-use config file is provided at:
 | Dry-run mode | `--dry-run` shows results without making changes |
 | Read-only by default | `list`, `info`, `costs`, `search`, `tree`, `projects`, `stats`, `todos` are read-only |
 | Partial ID resolution | Ambiguous prefixes are rejected with an error message |
-| No external dependencies | Pure Python standard library — no `pip install` needed |
+| No external dependencies | Pure Python standard library — zero runtime deps |
 
 ---
 
@@ -586,11 +601,11 @@ The language can also be set via environment variable `OPENCODE_DB_LANG=en`.
 
 ## Dependencies
 
-- **Python 3.10+** — standard library only
+- **Python 3.12+** — standard library only
 - **SQLite** — built-in `sqlite3` module
 - **OpenCode** — must be installed and run at least once (creates the database)
 
-No `pip install`, `npm`, `brew`, or any other package manager required.
+No `npm`, `brew`, or any other package manager required.
 
 ---
 
