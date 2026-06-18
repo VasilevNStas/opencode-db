@@ -1,9 +1,8 @@
 """Команда search: поиск по тексту сообщений и частей."""
 
 import json
-from typing import Literal
 
-from db import resolve_session_id
+from db import SessionError, resolve_session_id
 from i18n import _
 from utils import format_ts
 
@@ -16,9 +15,7 @@ def register(subparsers) -> None:
     p.add_argument("--json", action="store_true", help="JSON output")
 
 
-def _search_in_part_data(
-    data, query_lower
-) -> tuple[Literal[False], Literal[""]] | tuple[Literal[True], str]:
+def _search_in_part_data(data, query_lower) -> tuple[bool, str]:
     """Ищет query в part.data (JSON), проверяя текстовые поля."""
     if not data:
         return False, ""
@@ -45,14 +42,18 @@ def _search_in_part_data(
     return False, ""
 
 
-def run(args, db) -> Literal[0]:
+def run(args, db) -> int:
     query_lower = args.query.lower()
 
     conditions = []
     params = []
 
     if args.session:
-        full_id = resolve_session_id(db, args.session)
+        try:
+            full_id = resolve_session_id(db, args.session)
+        except SessionError as e:
+            print(e.message)
+            return 1
         conditions.append("p.session_id = ?")
         params.append(full_id)
 

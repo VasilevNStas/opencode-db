@@ -1,7 +1,13 @@
+import json
+
+import pytest
+
 from db import (
+    SessionError,
     get_children_sessions,
     get_latest_session,
     get_message_count,
+    get_messages,
     get_parent_session,
     get_part_count,
     get_project_count,
@@ -12,6 +18,7 @@ from db import (
     get_session_title,
     get_session_todos,
     parse_model,
+    resolve_session_id,
     verify_schema,
 )
 
@@ -150,3 +157,121 @@ class TestGetRecentSessions:
     def test_custom_limit(self, db) -> None:
         sessions = get_recent_sessions(db, limit=2)
         assert len(sessions) == 2
+
+
+class TestResolveSessionId:
+    def test_empty_id_returns_none(self, db) -> None:
+        assert resolve_session_id(db, None) is None
+        assert resolve_session_id(db, "") is None
+
+
+class TestSessionError:
+    def test_resolve_session_id_not_found(self, db) -> None:
+        with pytest.raises(SessionError):
+            get_session_info(db, "nonexistent")
+
+    def test_resolve_session_id_multiple(self, db) -> None:
+        db.execute(
+            "INSERT INTO session (id, time_created) VALUES (?, ?)",
+            ("ses_test_abc", 1000),
+        )
+        db.execute(
+            "INSERT INTO session (id, time_created) VALUES (?, ?)",
+            ("ses_test_xyz", 2000),
+        )
+        db.commit()
+        with pytest.raises(SessionError):
+            get_session_info(db, "ses_test")
+
+    def test_get_latest_session_no_sessions(self, db) -> None:
+        db.execute("DELETE FROM session")
+        db.commit()
+        with pytest.raises(SessionError):
+            get_latest_session(db)
+
+    def test_get_session_info_not_found(self, db) -> None:
+        with pytest.raises(SessionError):
+            get_session_info(db, "zzz_nope")
+
+
+class TestGetMessages:
+    def test_returns_messages_with_parts(self, db) -> None:
+        messages = get_messages(db, "ses_001")
+        assert len(messages) == 2
+        assert messages[0]["role"] == "user"
+        assert messages[1]["role"] == "assistant"
+
+    def test_parts_are_grouped_by_message(self, db) -> None:
+        messages = get_messages(db, "ses_001")
+        assert len(messages) == 2
+        assert len(messages[0]["parts"]) == 1
+        assert messages[0]["parts"][0]["type"] == "text"
+
+    def test_multiple_parts_per_message(self, db) -> None:
+        messages = get_messages(db, "ses_001")
+        parts = messages[1]["parts"]
+        assert len(parts) == 3
+        types = [p["type"] for p in parts]
+        assert types == ["text", "reasoning", "tool"]
+
+    def test_text_part_content(self, db) -> None:
+        messages = get_messages(db, "ses_001")
+        text_part = messages[0]["parts"][0]
+        assert text_part["type"] == "text"
+        assert "Hello" in text_part["text"]
+
+    def test_reasoning_part(self, db) -> None:
+        messages = get_messages(db, "ses_001")
+        parts = messages[1]["parts"]
+        reasoning = [p for p in parts if p["type"] == "reasoning"]
+        assert len(reasoning) == 1
+        assert "think" in reasoning[0]["text"].lower()
+
+    def test_tool_part(self, db) -> None:
+        messages = get_messages(db, "ses_001")
+        parts = messages[1]["parts"]
+        tool = [p for p in parts if p["type"] == "tool"]
+        assert len(tool) == 1
+        assert tool[0]["tool"] == "read"
+        assert tool[0]["status"] == "completed"
+
+    def test_sound_part(self, db) -> None:
+        messages = get_messages(db, "ses_003")
+        assert len(messages) == 2
+        parts = messages[0]["parts"]
+        assert len(parts) == 1
+        assert parts[0]["type"] == "sound"
+
+    def test_empty_session(self, db) -> None:
+        messages = get_messages(db, "ses_004")
+        assert messages == []
+
+    def test_bash_tool_part(self, db) -> None:
+        messages = get_messages(db, "ses_003")
+        tool_part = messages[1]["parts"][0]
+        assert tool_part["type"] == "tool"
+        assert tool_part["tool"] == "bash"
+
+    def test_skips_invalid_json_part(self, db) -> None:
+        db.execute(
+            "INSERT INTO message (id, session_id, time_created, data) VALUES (?, ?, ?, ?)",
+            ("msg_bad", "ses_001", 100500, json.dumps({"role": "user"})),
+        )
+        db.execute(
+            "INSERT INTO part (id, message_id, session_id, time_created, data) VALUES (?, ?, ?, ?, ?)",
+            ("part_bad", "msg_bad", "ses_001", 100500, "not valid json {"),
+        )
+        messages = get_messages(db, "ses_001")
+        assert len(messages) == 2
+
+    def test_skips_empty_part_data(self, db) -> None:
+        db.execute(
+            "INSERT INTO message (id, session_id, time_created, data) VALUES (?, ?, ?, ?)",
+            ("msg_empty", "ses_001", 100600, json.dumps({"role": "user"})),
+        )
+        db.execute(
+            "INSERT INTO part (id, message_id, session_id, time_created, data) VALUES (?, ?, ?, ?, ?)",
+            ("part_empty", "msg_empty", "ses_001", 100600, None),
+        )
+        messages = get_messages(db, "ses_001")
+        assert len(messages) == 2

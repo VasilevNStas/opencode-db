@@ -15,6 +15,15 @@ import sys
 from config import OPENCODE_DB
 from i18n import _
 
+
+class SessionError(Exception):
+    """Ошибка, связанная с сессией: не найдена, неоднозначный ID и т.п."""
+
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(message)
+
+
 # Ожидаемая схема БД: таблица → список обязательных колонок
 _EXPECTED_SCHEMA = {
     "session": [
@@ -95,15 +104,14 @@ def resolve_session_id(db, session_id):
     ).fetchall()
 
     if not rows:
-        print(_("session.not_found", session_id=session_id))
-        sys.exit(1)
+        raise SessionError(_("session.not_found", session_id=session_id))
 
     if len(rows) > 1:
-        print(_("session.multiple_match", session_id=session_id))
+        msg = [_("session.multiple_match", session_id=session_id)]
         for r in rows:
-            print(f"    {r['id']}")
-        print(_("session.specify_id"))
-        sys.exit(1)
+            msg.append(f"    {r['id']}")
+        msg.append(_("session.specify_id"))
+        raise SessionError("\n".join(msg))
 
     return rows[0]["id"]
 
@@ -127,8 +135,7 @@ def get_session_info(db, session_id):
     ).fetchone()
 
     if not row:
-        print(_("session.not_found", session_id=session_id))
-        sys.exit(1)
+        raise SessionError(_("session.not_found", session_id=session_id))
 
     return row
 
@@ -338,8 +345,7 @@ def get_latest_session(db):
     """).fetchone()
 
     if not row:
-        print(_("session.no_sessions"))
-        sys.exit(1)
+        raise SessionError(_("session.no_sessions"))
 
     return row["id"]
 
