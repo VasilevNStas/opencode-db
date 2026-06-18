@@ -1,18 +1,21 @@
 """Форматирование вывода: таблицы, JSON, Markdown."""
 
+from __future__ import annotations
+
 import json
 import os
+from typing import Any
 
 from config import IGNORE_DIRS
 from i18n import _
 
 
-def print_json(data) -> None:
+def print_json(data: Any) -> None:
     """Выводит данные в JSON-формате."""
     print(json.dumps(data, ensure_ascii=False, indent=2, default=str))
 
 
-def print_table_simple(headers, rows, sep="  ") -> None:
+def print_table_simple(headers: list[str], rows: list[list], sep: str = "  ") -> None:
     """Выводит таблицу с авто-шириной колонок."""
     if not rows:
         print(_("empty"))
@@ -37,7 +40,7 @@ def print_table_simple(headers, rows, sep="  ") -> None:
     print(_("fmt.rows_count", n=len(rows)))
 
 
-def summarize_val(v, max_len=120) -> str:
+def summarize_val(v: Any, max_len: int = 120) -> str:
     """Обрезает длинное значение."""
     s = str(v)
     if len(s) > max_len:
@@ -45,7 +48,7 @@ def summarize_val(v, max_len=120) -> str:
     return s
 
 
-def format_part_to_md(part, full=False):
+def format_part_to_md(part: dict, full: bool = False) -> str:
     """Преобразует часть сообщения в строку Markdown.
 
     Args:
@@ -149,7 +152,7 @@ def format_part_to_md(part, full=False):
     return ""
 
 
-def collect_snapshot(project_dir):
+def collect_snapshot(project_dir: str) -> dict[str, Any]:
     """Собирает статистику по проекту для log.md.
 
     Returns:
@@ -182,7 +185,14 @@ def collect_snapshot(project_dir):
     return snapshot
 
 
-def update_log(output_dir, title, note, dialog_filename, snapshot, now_str) -> None:
+def update_log(
+    output_dir: str,
+    title: str,
+    note: str | None,
+    dialog_filename: str | None,
+    snapshot: dict[str, Any],
+    now_str: str,
+) -> None:
     """Создаёт или дополняет log.md в директории проекта."""
     log_path = os.path.join(output_dir, "log.md")
     heading = f"{title}: {note}" if note else title
