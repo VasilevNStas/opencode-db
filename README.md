@@ -6,9 +6,7 @@
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**OpenCode database manager: browse, export, analyze, and clean up sessions.**
-
-`opencode-db` is a CLI utility that connects to OpenCode's local SQLite database and lets you inspect your agent sessions, export conversations to Markdown, track token usage and costs, and manage storage by deleting old sessions or optimizing the database.
+**OpenCode stores everything in a local SQLite database.** Every agent session, conversation, token usage, and cost is saved automatically. `opencode-db` is the CLI tool to work with that database — list sessions, export conversations to Markdown, track token costs, prune old data, and more.
 
 ```
 opencode-db help        # full reference with examples
