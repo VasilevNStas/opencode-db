@@ -1,12 +1,24 @@
 [build-system]
 requires = ["setuptools>=64"]
-build-backend = "setuptools.backends._legacy._Backend"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "opencode-db"
-version = "0.1.0"
-description = "OpenCode database manager"
+version = "0.3.0"
+description = "OpenCode database CLI manager — browse, export, analyze, clean up sessions"
 requires-python = ">=3.12"
+
+[project.scripts]
+opencode-db = "cli:main"
+
+[tool.setuptools]
+py-modules = [
+    "cli", "config", "db", "formatters", "i18n", "utils",
+    "cmd_costs", "cmd_delete", "cmd_export", "cmd_help",
+    "cmd_info", "cmd_list", "cmd_projects", "cmd_prune",
+    "cmd_search", "cmd_stats", "cmd_todos", "cmd_tree", "cmd_vacuum",
+]
+packages = ["commands"]
 
 [tool.ruff]
 target-version = "py312"
