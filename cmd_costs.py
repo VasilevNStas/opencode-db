@@ -3,13 +3,28 @@
 Стоимость берётся напрямую из поля session.cost БД OpenCode.
 """
 
+import argparse
+
 from db import SessionError, get_session_info, get_session_title, parse_model
 from i18n import _
-from utils import format_cost, format_tokens
+from utils import build_help_epilog, format_cost, format_tokens
+
+_COSTS_EXAMPLES = [
+    ("", "help.costs.e0"),
+    ("<session_id>", "help.costs.e1"),
+    ("--total", "help.costs.e2"),
+    ("--project proj_xxx", "help.costs.e3"),
+    ("--json", "help.costs.e4"),
+]
 
 
 def register(subparsers) -> None:
-    p = subparsers.add_parser("costs", help=_("help.cmd.costs"))
+    p = subparsers.add_parser(
+        "costs",
+        help=_("help.cmd.costs"),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=build_help_epilog("costs", _COSTS_EXAMPLES),
+    )
     p.add_argument("session_id", nargs="?", help="Session ID")
     p.add_argument("--project", type=str, help="Filter by project")
     p.add_argument("--total", action="store_true", help="Total across all sessions")

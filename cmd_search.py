@@ -1,14 +1,26 @@
 """Команда search: поиск по тексту сообщений и частей."""
 
+import argparse
 import json
 
 from db import SessionError, resolve_session_id
 from i18n import _
-from utils import format_ts
+from utils import build_help_epilog, format_ts
+
+_SEARCH_EXAMPLES = [
+    ('"text"', "help.search.e0"),
+    ('"text" --session ses_xxx', "help.search.e1"),
+    ('"text" --json', "help.search.e2"),
+]
 
 
 def register(subparsers) -> None:
-    p = subparsers.add_parser("search", help=_("help.cmd.search"))
+    p = subparsers.add_parser(
+        "search",
+        help=_("help.cmd.search"),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=build_help_epilog("search", _SEARCH_EXAMPLES),
+    )
     p.add_argument("query", help="Search text")
     p.add_argument("--session", type=str, help="Limit to session")
     p.add_argument("--limit", type=int, default=30, help="Max results")

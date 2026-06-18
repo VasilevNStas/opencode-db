@@ -1,12 +1,26 @@
 """Команда todos: просмотр задач (todo) из сессий."""
 
+import argparse
+
 from db import SessionError, resolve_session_id
 from i18n import _
-from utils import format_ts
+from utils import build_help_epilog, format_ts
+
+_TODOS_EXAMPLES = [
+    ("", "help.todos.e0"),
+    ("<session_id>", "help.todos.e1"),
+    ("--status pending", "help.todos.e2"),
+    ("--json", "help.todos.e3"),
+]
 
 
 def register(subparsers) -> None:
-    p = subparsers.add_parser("todos", help=_("help.cmd.todos"))
+    p = subparsers.add_parser(
+        "todos",
+        help=_("help.cmd.todos"),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=build_help_epilog("todos", _TODOS_EXAMPLES),
+    )
     p.add_argument("session_id", nargs="?", help="Session ID")
     p.add_argument(
         "--status",

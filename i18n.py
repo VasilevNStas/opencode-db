@@ -322,8 +322,8 @@ L: dict[str, dict[str, str]] = {
         "en": "╔══════════════════════════════════════════════════════════╗",
     },
     "help.header_title": {
-        "ru": "║                 opencode-db — справка                   ║",
-        "en": "║                 opencode-db — help                     ║",
+        "ru": "║                 opencode-db — справка                    ║",
+        "en": "║                 opencode-db — help                       ║",
     },
     "help.header_box_bottom": {
         "ru": "╚══════════════════════════════════════════════════════════╝",
@@ -355,6 +355,14 @@ L: dict[str, dict[str, str]] = {
     },
     "help.unknown": {"ru": "❌ Неизвестная команда: {cmd}", "en": "❌ Unknown command: {cmd}"},
     "help.available": {"ru": "   Доступные: {cmds}", "en": "   Available: {cmds}"},
+    "help.usage_header": {
+        "ru": "Примеры использования команды {cmd}:",
+        "en": "Usage examples for {cmd}:",
+    },
+    "help.flags_header": {
+        "ru": "Все доступные флаги для {cmd}:",
+        "en": "Available flags for {cmd}:",
+    },
     # ==================================================================
     # HELP — команды (краткие описания в справке)
     # ==================================================================
@@ -372,8 +380,12 @@ L: dict[str, dict[str, str]] = {
     "help.cmd.vacuum": {"ru": "Оптимизация БД", "en": "Database optimization"},
     "help.cmd.help": {"ru": "Подробная справка", "en": "Detailed help"},
     # ==================================================================
-    # HELP — примеры
+    # HELP — примеры (epilog для argparse --help)
     # ==================================================================
+    "help.cmd.list.examples": {
+        "ru": "\nПримеры:\n  opencode-db list                              # Сессии за последнее время\n  opencode-db list --limit 10                # Показать 10 последних\n  opencode-db list --sort cost               # Сортировка по стоимости\n  opencode-db list --project proj_xxx        # Фильтр по проекту\n  opencode-db list --json                    # Вывод в JSON\n",
+        "en": "\nExamples:\n  opencode-db list                              # Recent sessions\n  opencode-db list --limit 10                # Show last 10\n  opencode-db list --sort cost               # Sort by cost\n  opencode-db list --project proj_xxx        # Filter by project\n  opencode-db list --json                    # JSON output\n",
+    },
     "help.list.e0": {"ru": "Сессии за последнее время", "en": "Recent sessions"},
     "help.list.e1": {"ru": "Показать 10 последних", "en": "Show last 10"},
     "help.list.e2": {"ru": "Сортировка по стоимости", "en": "Sort by cost"},
@@ -427,6 +439,14 @@ L: dict[str, dict[str, str]] = {
         "en": "VACUUM + REINDEX + ANALYZE with confirmation",
     },
     "help.vacuum.e1": {"ru": "Без подтверждения", "en": "Skip confirmation"},
+    "help.help.e0": {
+        "ru": "Общая справка по всем командам",
+        "en": "General help for all commands",
+    },
+    "help.help.e1": {
+        "ru": "Справка по конкретной команде",
+        "en": "Help for a specific command",
+    },
     # ==================================================================
     # MARKDOWN EXPORT (formatters.py, config.py)
     # ==================================================================

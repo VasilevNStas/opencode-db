@@ -1,14 +1,25 @@
 """Команда stats: общая статистика по базе данных."""
 
+import argparse
 from typing import Literal
 
 from db import parse_model
 from i18n import _
-from utils import format_cost, format_tokens, format_ts
+from utils import build_help_epilog, format_cost, format_tokens, format_ts
+
+_STATS_EXAMPLES = [
+    ("", "help.stats.e0"),
+    ("--json", "help.stats.e1"),
+]
 
 
 def register(subparsers) -> None:
-    p = subparsers.add_parser("stats", help=_("help.cmd.stats"))
+    p = subparsers.add_parser(
+        "stats",
+        help=_("help.cmd.stats"),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=build_help_epilog("stats", _STATS_EXAMPLES),
+    )
     p.add_argument("--json", action="store_true", help="JSON output")
 
 

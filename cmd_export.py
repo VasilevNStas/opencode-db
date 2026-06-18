@@ -6,6 +6,7 @@
   - export (без аргументов)      — интерактивный выбор из списка
 """
 
+import argparse
 import os
 
 from db import (
@@ -19,11 +20,25 @@ from db import (
 )
 from formatters import collect_snapshot, format_part_to_md, update_log
 from i18n import _
-from utils import format_cost, format_ts, format_ts_short
+from utils import build_help_epilog, format_cost, format_ts, format_ts_short
+
+_EXPORT_EXAMPLES = [
+    ("<session_id>", "help.export.e0"),
+    ("--latest", "help.export.e1"),
+    ("", "help.export.e2"),
+    ("--full", "help.export.e3"),
+    ("--force", "help.export.e4"),
+    ('--note "text"', "help.export.e5"),
+]
 
 
 def register(subparsers) -> None:
-    p = subparsers.add_parser("export", help=_("help.cmd.export"))
+    p = subparsers.add_parser(
+        "export",
+        help=_("help.cmd.export"),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=build_help_epilog("export", _EXPORT_EXAMPLES),
+    )
     p.add_argument(
         "session_id",
         nargs="?",

@@ -1,5 +1,7 @@
 """Команда info: детальная информация о сессии."""
 
+import argparse
+
 from db import (
     SessionError,
     get_children_sessions,
@@ -13,11 +15,21 @@ from db import (
     parse_model,
 )
 from i18n import _
-from utils import format_cost, format_tokens, format_ts
+from utils import build_help_epilog, format_cost, format_tokens, format_ts
+
+_INFO_EXAMPLES = [
+    ("<session_id>", "help.info.e0"),
+    ("<session_id> --json", "help.info.e1"),
+]
 
 
 def register(subparsers) -> None:
-    p = subparsers.add_parser("info", help=_("help.cmd.info"))
+    p = subparsers.add_parser(
+        "info",
+        help=_("help.cmd.info"),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=build_help_epilog("info", _INFO_EXAMPLES),
+    )
     p.add_argument("session_id", help="Session ID")
     p.add_argument("--json", action="store_true", help="JSON output")
 

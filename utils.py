@@ -91,6 +91,27 @@ def confirm(prompt=None, default=False) -> bool:
             return False
 
 
+def build_help_epilog(cmd_name: str, examples: list[tuple[str, str]]) -> str:
+    """Формирует epilog для argparse из списка примеров.
+
+    Args:
+        cmd_name: имя команды (для заголовка)
+        examples: список (флаги, ключ в i18n с описанием)
+
+    Returns:
+        str — готовый текст для epilog
+    """
+    header = _("help.usage_header", cmd=cmd_name)
+    lines = [f"\n{header}"]
+    for flags, desc_key in examples:
+        desc = _(desc_key)
+        if flags:
+            lines.append(f"  opencode-db {cmd_name} {flags:33s}  # {desc}")
+        else:
+            lines.append(f"  opencode-db {cmd_name:36s}  # {desc}")
+    return "\n".join(lines)
+
+
 def format_cost(cost_value) -> str:
     """Форматирует стоимость в долларах."""
     if cost_value is None:

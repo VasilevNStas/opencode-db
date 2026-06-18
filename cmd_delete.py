@@ -1,5 +1,7 @@
 """Команда delete: удаление сессии."""
 
+import argparse
+
 from db import (
     SessionError,
     get_message_count,
@@ -9,11 +11,22 @@ from db import (
     parse_model,
 )
 from i18n import _
-from utils import confirm, format_cost, format_ts
+from utils import build_help_epilog, confirm, format_cost, format_ts
+
+_DELETE_EXAMPLES = [
+    ("<session_id>", "help.delete.e0"),
+    ("<session_id> --dry-run", "help.delete.e1"),
+    ("<session_id> --force", "help.delete.e2"),
+]
 
 
 def register(subparsers) -> None:
-    p = subparsers.add_parser("delete", help=_("help.cmd.delete"))
+    p = subparsers.add_parser(
+        "delete",
+        help=_("help.cmd.delete"),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=build_help_epilog("delete", _DELETE_EXAMPLES),
+    )
     p.add_argument("session_id", help="Session ID to delete")
     p.add_argument("--dry-run", action="store_true", help="Preview without deleting")
     p.add_argument("--force", "-f", action="store_true", help="Skip confirmation")
