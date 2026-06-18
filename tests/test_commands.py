@@ -477,7 +477,7 @@ class TestPruneCommand:
         from cmd_prune import run
 
         args = _ns(older_than="30d", keep_last=None, project=None, dry_run=False, force=False)
-        with patch("cmd_prune.confirm", return_value=False):
+        with patch("cmd_delete.confirm", return_value=False):
             assert run(args, db) == 0
         assert _count_sessions(db) == 4
 
