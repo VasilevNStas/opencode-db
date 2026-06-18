@@ -75,7 +75,7 @@ def _export_interactive(db, output_dir, force, note, full) -> Literal[1] | Liter
         title = get_session_title(s)
         created = format_ts(s["time_created"], "%Y-%m-%d %H:%M")
         cost = format_cost(s["cost"])
-        print(f"  {i:2d}. {s['id'][:16]}  {created}  {title[:40]:40s}  {cost}")
+        print(f"  {i:2d}. {s['id'][:24]}  {created}  {title[:40]:40s}  {cost}")
 
     print(f"  {'─' * 60}")
 
@@ -127,7 +127,7 @@ def _do_export(db, session_info, output_dir, force, note, full=False) -> Literal
 
 - **{_("md.header.date")}**: {date_display}
 - **{_("md.header.model")}**: {model}
-- **{_("md.header.session_id")}**: `{session_info["id"][:16]}`
+- **{_("md.header.session_id")}**: `{session_info["id"][:24]}`
 - **{_("md.header.messages")}**: {len(messages)}
 
 ---

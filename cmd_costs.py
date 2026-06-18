@@ -175,7 +175,7 @@ def _show_list(db, project_id, limit, as_json) -> Literal[0]:
         )
         table.append(
             [
-                r["id"][:16],
+                r["id"][:24],
                 get_session_title(r)[:28],
                 parse_model(r)[:20],
                 format_tokens(total_tokens),

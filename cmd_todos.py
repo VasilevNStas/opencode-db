@@ -55,7 +55,7 @@ def run(args, db) -> Literal[0]:
         for r in rows:
             data.append(
                 {
-                    "session_id": r["session_id"][:16],
+                    "session_id": r["session_id"][:24],
                     "session_title": r["session_title"],
                     "content": r["content"],
                     "status": r["status"],

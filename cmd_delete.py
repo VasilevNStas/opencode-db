@@ -46,13 +46,13 @@ def run(args, db) -> Literal[0]:
         print(f"  {_('delete.dry_run_hint')}")
         return 0
 
-    if not args.force and not confirm(_("delete.confirm", id=session_id[:16])):
+    if not args.force and not confirm(_("delete.confirm", id=session_id[:24])):
         print(_("canceled"))
         return 0
 
     db.execute("DELETE FROM session WHERE id = ?", (session_id,))
     db.commit()
 
-    print(f"\n{_('delete.done', id=session_id[:16])}")
+    print(f"\n{_('delete.done', id=session_id[:24])}")
     print(_("delete.done_detail", msg=msg_count, parts=part_count))
     return 0

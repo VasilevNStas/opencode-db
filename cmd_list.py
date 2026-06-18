@@ -45,12 +45,12 @@ def run(args, db) -> Literal[0]:
     where = " AND ".join(conditions) if conditions else "1=1"
 
     sort_map = {
-        "date": "MAX(m.time_created) DESC",
+        "date": "COALESCE(MAX(m.time_created), s.time_created) DESC",
         "cost": "s.cost DESC",
         "tokens": "(s.tokens_input + s.tokens_output) DESC",
         "messages": "msg_count DESC",
     }
-    order = sort_map.get(args.sort, "MAX(m.time_created) DESC")
+    order = sort_map.get(args.sort, "COALESCE(MAX(m.time_created), s.time_created) DESC")
 
     limit = 999999 if args.all else args.limit
 
@@ -98,7 +98,7 @@ def run(args, db) -> Literal[0]:
 
         table_rows.append(
             [
-                r["id"][:16],
+                r["id"][:24],
                 get_session_title(r)[:32],
                 project_name[:16],
                 model_name[:20],

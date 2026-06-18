@@ -48,7 +48,7 @@ def _build_tree(db, parent_id, depth, max_depth, indent=0, visited=None):
         prefix = "  " * indent + ("└─ " if indent > 0 else "")
         title = get_session_title(r)
         created = format_ts(r["time_created"], "%Y-%m-%d")
-        lines.append(f"{prefix}{r['id'][:16]}  {created}  {title}")
+        lines.append(f"{prefix}{r['id'][:24]}  {created}  {title}")
 
         lines.extend(_build_tree(db, r["id"], depth + 1, max_depth, indent + 1, visited))
 

@@ -90,7 +90,9 @@ def resolve_session_id(db, session_id):
     if row:
         return row["id"]
 
-    rows = db.execute("SELECT id FROM session WHERE id LIKE ?", (f"{session_id}%",)).fetchall()
+    rows = db.execute(
+        "SELECT id FROM session WHERE id LIKE ? COLLATE NOCASE", (f"{session_id}%",)
+    ).fetchall()
 
     if not rows:
         print(_("session.not_found", session_id=session_id))
@@ -326,12 +328,12 @@ def get_project_name(db, project_id):
 
 
 def get_latest_session(db):
-    """Находит ID самой свежей сессии (по последнему сообщению)."""
+    """Находит ID самой свежей сессии (по последнему сообщению или времени создания)."""
     row = db.execute("""
         SELECT s.id FROM session s
-        JOIN message m ON m.session_id = s.id
+        LEFT JOIN message m ON m.session_id = s.id
         GROUP BY s.id
-        ORDER BY MAX(m.time_created) DESC
+        ORDER BY COALESCE(MAX(m.time_created), s.time_created) DESC
         LIMIT 1
     """).fetchone()
 
@@ -342,16 +344,30 @@ def get_latest_session(db):
     return row["id"]
 
 
-def get_recent_sessions(db, limit=15):
+def get_recent_sessions(db, limit=15, project_id=None):
     """Возвращает список последних сессий для интерактивного выбора."""
+    if project_id:
+        return db.execute(
+            """
+            SELECT s.id, s.title, s.model, s.time_created, s.cost,
+                   COUNT(DISTINCT m.id) as msg_count
+            FROM session s
+            LEFT JOIN message m ON m.session_id = s.id
+            WHERE s.project_id = ?
+            GROUP BY s.id
+            ORDER BY COALESCE(MAX(m.time_created), s.time_created) DESC
+            LIMIT ?
+        """,
+            (project_id, limit),
+        ).fetchall()
     return db.execute(
         """
         SELECT s.id, s.title, s.model, s.time_created, s.cost,
                COUNT(DISTINCT m.id) as msg_count
         FROM session s
-        JOIN message m ON m.session_id = s.id
+        LEFT JOIN message m ON m.session_id = s.id
         GROUP BY s.id
-        ORDER BY MAX(m.time_created) DESC
+        ORDER BY COALESCE(MAX(m.time_created), s.time_created) DESC
         LIMIT ?
     """,
         (limit,),

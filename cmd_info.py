@@ -99,7 +99,7 @@ def run(args, db) -> Literal[0]:
     print(f"  {title}")
     print(f"{'=' * 60}")
     print(f"  {_('info.id')}:        {session_id}")
-    print(f"  {_('info.project')}:    {project_name} ({info['project_id'][:16]})")
+    print(f"  {_('info.project')}:    {project_name} ({info['project_id'][:24]})")
     print(f"  {_('info.model')}:    {model}")
     print(f"  {_('info.agent')}:     {info['agent'] or '—'}")
     print(f"  {_('info.version')}:    {info['version'] or '—'}")
@@ -109,13 +109,13 @@ def run(args, db) -> Literal[0]:
 
     if parent:
         parent_title = parent["title"] or _("info.unnamed")
-        print(f"  {_('info.parent')}:  {parent['id'][:16]} — {parent_title}")
+        print(f"  {_('info.parent')}:  {parent['id'][:24]} — {parent_title}")
 
     if children:
         print(f"  {_('info.branches')}:     {len(children)}")
         for c in children:
             c_title = c["title"] or _("info.unnamed")
-            print(_("info.children_prefix", id=c["id"][:16], title=c_title))
+            print(_("info.children_prefix", id=c["id"][:24], title=c_title))
 
     print(f"\n  {'─' * 56}")
     print(f"  {_('info.messages')}: {msg_count}")

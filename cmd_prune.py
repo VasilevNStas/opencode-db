@@ -98,7 +98,7 @@ def run(args, db) -> Literal[1] | Literal[0]:
 
     for r in target_rows[:20]:
         created = format_ts(r["time_created"])
-        print(f"    • {r['id'][:16]}  {created}  {r['title'] or '—'}")
+        print(f"    • {r['id'][:24]}  {created}  {r['title'] or '—'}")
 
     if len(target_rows) > 20:
         print(f"    … и ещё {len(target_rows) - 20}")

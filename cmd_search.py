@@ -79,7 +79,7 @@ def run(args, db) -> Literal[0]:
         if found:
             results.append(
                 {
-                    "session_id": r["session_id"][:16],
+                    "session_id": r["session_id"][:24],
                     "message_id": r["message_id"][:12],
                     "role": r["role"],
                     "time": format_ts(r["time_created"]) if r["time_created"] else "—",
