@@ -28,3 +28,6 @@ Thumbs.db
 
 # Project-specific
 *.bak
+
+# Local-only opencode agent context (never committed)
+.opencode/
