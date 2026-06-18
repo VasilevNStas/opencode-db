@@ -1,12 +1,25 @@
 """Команда tree: дерево ветвления сессий."""
 
+import argparse
+
 from db import SessionError, get_session_title, resolve_session_id
 from i18n import _
-from utils import format_ts
+from utils import build_help_epilog, format_ts
+
+_TREE_EXAMPLES = [
+    ("", "help.tree.e0"),
+    ("<session_id>", "help.tree.e1"),
+    ("--depth 3", "help.tree.e2"),
+]
 
 
 def register(subparsers) -> None:
-    p = subparsers.add_parser("tree", help=_("help.cmd.tree"))
+    p = subparsers.add_parser(
+        "tree",
+        help=_("help.cmd.tree"),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=build_help_epilog("tree", _TREE_EXAMPLES),
+    )
     p.add_argument("session_id", nargs="?", help="Start from this session")
     p.add_argument("--project", type=str, help="Filter by project")
     p.add_argument("--depth", type=int, default=5, help="Max depth")

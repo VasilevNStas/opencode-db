@@ -1,17 +1,37 @@
 """Команда help: подробная справка по opencode-db."""
 
+import argparse
 from typing import Literal
 
 from i18n import _
+from utils import build_help_epilog
+
+_HELP_EXAMPLES = [
+    ("", "help.help.e0"),
+    ("<command>", "help.help.e1"),
+]
 
 
 def register(subparsers) -> None:
-    p = subparsers.add_parser("help", help=_("help.cmd.help"))
+    p = subparsers.add_parser(
+        "help",
+        help=_("help.cmd.help"),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=build_help_epilog("help", _HELP_EXAMPLES),
+    )
     p.add_argument("topic", nargs="?", help="Command name")
     p.add_argument("--json", action="store_true", help="JSON output")
 
 
 _COMMANDS = [
+    (
+        "help",
+        "help.cmd.help",
+        [
+            ("", "help.help.e0"),
+            ("<command>", "help.help.e1"),
+        ],
+    ),
     (
         "list",
         "help.cmd.list",
@@ -173,8 +193,14 @@ def _print_command_help(cmd_name) -> Literal[1] | Literal[0]:
 
     desc_key, examples = entry
     print()
-    print(_("help.cmd_header", cmd=cmd_name, desc=_(desc_key)))
+    print(f"  {'─' * 55}")
+    print(f"  {_('help.cmd_header', cmd=cmd_name, desc=_(desc_key))}")
+    print(f"  {'─' * 55}")
     print()
+    print(f"  {_('help.flags_header', cmd=cmd_name)}")
+    print(f"    opencode-db {cmd_name} --help")
+    print()
+    print(f"  {_('help.usage_header', cmd=cmd_name)}")
     for flag, example_key in examples:
         example_desc = _(example_key)
         if flag:

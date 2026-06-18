@@ -1,16 +1,30 @@
 """Команда list: список сессий с фильтрацией и сортировкой."""
 
+import argparse
 from typing import Literal
 
 import db as db_module
 from db import get_session_title, parse_model
 from formatters import print_json, print_table_simple
 from i18n import _
-from utils import format_ts
+from utils import build_help_epilog, format_ts
+
+_LIST_EXAMPLES = [
+    ("", "help.list.e0"),
+    ("--limit 10", "help.list.e1"),
+    ("--sort cost", "help.list.e2"),
+    ("--project proj_xxx", "help.list.e3"),
+    ("--json", "help.list.e4"),
+]
 
 
 def register(subparsers) -> None:
-    p = subparsers.add_parser("list", help=_("help.cmd.list"))
+    p = subparsers.add_parser(
+        "list",
+        help=_("help.cmd.list"),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=build_help_epilog("list", _LIST_EXAMPLES),
+    )
     p.add_argument("--limit", type=int, default=25, help="Max results (default 25)")
     p.add_argument("--offset", type=int, default=0, help="Offset")
     p.add_argument("--project", type=str, help="Filter by project ID")

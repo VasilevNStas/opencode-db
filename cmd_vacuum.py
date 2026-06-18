@@ -1,15 +1,26 @@
 """Команда vacuum: оптимизация базы данных."""
 
+import argparse
 import os
 from typing import Literal
 
 from config import OPENCODE_DB
 from i18n import _
-from utils import confirm
+from utils import build_help_epilog, confirm
+
+_VACUUM_EXAMPLES = [
+    ("", "help.vacuum.e0"),
+    ("--force", "help.vacuum.e1"),
+]
 
 
 def register(subparsers) -> None:
-    p = subparsers.add_parser("vacuum", help=_("help.cmd.vacuum"))
+    p = subparsers.add_parser(
+        "vacuum",
+        help=_("help.cmd.vacuum"),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=build_help_epilog("vacuum", _VACUUM_EXAMPLES),
+    )
     p.add_argument("--force", "-f", action="store_true", help="Skip confirmation")
 
 

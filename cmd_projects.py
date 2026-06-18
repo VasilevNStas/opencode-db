@@ -1,13 +1,24 @@
 """Команда projects: список проектов со статистикой."""
 
+import argparse
 from typing import Literal
 
 from i18n import _
-from utils import format_cost, format_tokens, format_ts
+from utils import build_help_epilog, format_cost, format_tokens, format_ts
+
+_PROJECTS_EXAMPLES = [
+    ("", "help.projects.e0"),
+    ("--json", "help.projects.e1"),
+]
 
 
 def register(subparsers) -> None:
-    p = subparsers.add_parser("projects", help=_("help.cmd.projects"))
+    p = subparsers.add_parser(
+        "projects",
+        help=_("help.cmd.projects"),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=build_help_epilog("projects", _PROJECTS_EXAMPLES),
+    )
     p.add_argument("--json", action="store_true", help="JSON output")
 
 
