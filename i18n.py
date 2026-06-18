@@ -185,6 +185,40 @@ L: dict[str, dict[str, str]] = {
         "ru": "     Сообщений: {msg}, частей: {parts}",
         "en": "     Messages: {msg}, parts: {parts}",
     },
+    "delete.none": {"ru": "  ✅ Нет сессий для удаления.", "en": "  ✅ No sessions to delete."},
+    "delete.filter_required": {
+        "ru": "❌ Укажи ID сессии, фильтр, или --interactive",
+        "en": "❌ Specify session ID, a filter, or --interactive",
+    },
+    "delete.usage": {
+        "ru": "  Использование: opencode-db delete <session_id>",
+        "en": "  Usage: opencode-db delete <session_id>",
+    },
+    "delete.bad_spec": {
+        "ru": "❌ Не могу разобрать: --older-than {spec}",
+        "en": "❌ Cannot parse: --older-than {spec}",
+    },
+    "delete.bad_date": {
+        "ru": "❌ Неверный формат даты: {date}. Используй ГГГГ-ММ-ДД",
+        "en": "❌ Invalid date format: {date}. Use YYYY-MM-DD",
+    },
+    "delete.mass_header": {
+        "ru": "Будет удалено сессий: {n}",
+        "en": "Sessions to delete: {n}",
+    },
+    "delete.cost_total": {
+        "ru": "Стоимость удаляемых: {cost}",
+        "en": "Cost of deleted sessions: {cost}",
+    },
+    "delete.tokens_total": {"ru": "Освободится токенов: ~{n}", "en": "Tokens freed: ~{n}"},
+    "delete.mass_confirm": {"ru": "Удалить {n} сессий?", "en": "Delete {n} sessions?"},
+    "delete.done_mass": {"ru": "  ✅ Удалено {n} сессий.", "en": "  ✅ Deleted {n} sessions."},
+    "delete.interactive_header": {"ru": "Последние сессии:", "en": "Recent sessions:"},
+    "delete.interactive_prompt": {
+        "ru": "  Введи номера (1,3-5) или Enter для отмены: ",
+        "en": "  Enter numbers (1,3-5) or Enter to cancel: ",
+    },
+    "delete.no_sessions": {"ru": "❌ Нет сессий для удаления.", "en": "❌ No sessions to delete."},
     # ==================================================================
     # COSTS
     # ==================================================================
@@ -369,7 +403,7 @@ L: dict[str, dict[str, str]] = {
     "help.cmd.list": {"ru": "Список сессий", "en": "List sessions"},
     "help.cmd.info": {"ru": "Детальная информация о сессии", "en": "Session details"},
     "help.cmd.export": {"ru": "Экспорт диалога в Markdown", "en": "Export dialog to Markdown"},
-    "help.cmd.delete": {"ru": "Удаление сессии", "en": "Delete a session"},
+    "help.cmd.delete": {"ru": "Удаление сессий", "en": "Delete sessions"},
     "help.cmd.costs": {"ru": "Анализ расходов на токены", "en": "Token cost analysis"},
     "help.cmd.prune": {"ru": "Массовая очистка сессий", "en": "Bulk session cleanup"},
     "help.cmd.search": {"ru": "Поиск по сообщениям", "en": "Search messages"},
@@ -408,6 +442,22 @@ L: dict[str, dict[str, str]] = {
     "help.delete.e0": {"ru": "Удалить с подтверждением", "en": "Delete with confirmation"},
     "help.delete.e1": {"ru": "Показать что будет удалено", "en": "Preview what will be deleted"},
     "help.delete.e2": {"ru": "Без подтверждения", "en": "Skip confirmation"},
+    "help.delete.e3": {
+        "ru": "Удалить сессии старше 90 дней",
+        "en": "Delete sessions older than 90 days",
+    },
+    "help.delete.e4": {
+        "ru": "Оставить 30 последних, остальное удалить",
+        "en": "Keep 30 most recent, delete the rest",
+    },
+    "help.delete.e5": {
+        "ru": "Удалить сессии до указанной даты",
+        "en": "Delete sessions before a date",
+    },
+    "help.delete.e6": {
+        "ru": "Интерактивный выбор из списка",
+        "en": "Choose sessions from a list",
+    },
     "help.costs.e0": {"ru": "Топ сессий по расходам", "en": "Top sessions by cost"},
     "help.costs.e1": {"ru": "Детально по сессии", "en": "Single session breakdown"},
     "help.costs.e2": {"ru": "Сумма по всей БД", "en": "Total across all sessions"},

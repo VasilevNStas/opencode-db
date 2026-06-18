@@ -37,6 +37,19 @@ def summarize_val(v, max_len=120) -> str:
     return s
 
 
+def parse_date(date_str: str) -> datetime | None:
+    """Парсит дату в формате ГГГГ-ММ-ДД."""
+    if not date_str or not isinstance(date_str, str):
+        return None
+    try:
+        parts = date_str.strip().split("-")
+        if len(parts) != 3:
+            return None
+        return datetime(int(parts[0]), int(parts[1]), int(parts[2]), tzinfo=UTC)
+    except (ValueError, IndexError):
+        return None
+
+
 def parse_time_spec(spec) -> None | datetime:
     """Парсит спецификацию времени ('30d', '6m', '1y') в timedelta."""
     if not spec or not isinstance(spec, str):

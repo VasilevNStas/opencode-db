@@ -210,20 +210,35 @@ If the project directory contains `.obsidian`, a `log.md` file is automatically 
 
 ---
 
-### `delete` — delete a session
+### `delete` — delete sessions
 
-Removes a session and all related data (messages, parts, todos) thanks to CASCADE constraints in the database schema.
+Removes sessions and all related data (messages, parts, todos). Supports single deletion by ID or bulk deletion with filters.
 
 ```bash
-opencode-db delete ses_1c9d --dry-run    # show what would be deleted
-opencode-db delete ses_1c9d              # delete with confirmation
-opencode-db delete ses_1c9d --force      # delete without confirmation
+opencode-db delete ses_1c9d                              # single session with confirmation
+opencode-db delete ses_1c9d --force                      # single session, no confirmation
+opencode-db delete ses_1c9d --dry-run                    # preview what would be deleted
+opencode-db delete --older-than 90d                      # sessions older than 90 days
+opencode-db delete --older-than 6m --dry-run             # preview sessions older than 6 months
+opencode-db delete --keep-last 30                        # keep 30 most recent, delete the rest
+opencode-db delete --before 2026-05-20                   # sessions before a specific date
+opencode-db delete --after 2026-01-01                    # sessions after a specific date
+opencode-db delete --project proj_xxx                    # sessions in a specific project
+opencode-db delete --older-than 90d --keep-last 20       # combined filters
+opencode-db delete --interactive                         # choose from a list interactively
 ```
 
 | Flag | Description |
 |---|---|
+| `session_id` | Session ID (optional with `--interactive`) |
+| `--older-than` | Delete sessions older than (e.g. `30d`, `6m`, `1y`) |
+| `--before` | Delete sessions before date (`YYYY-MM-DD`) |
+| `--after` | Delete sessions after date (`YYYY-MM-DD`) |
+| `--keep-last` | Keep N most recent, delete the rest |
+| `--project` | Limit to a specific project |
 | `--dry-run` | Only show what would be deleted |
 | `--force`, `-f` | Skip confirmation prompt |
+| `--interactive` | Pick sessions from a list |
 
 ---
 
@@ -252,30 +267,16 @@ Costs are taken directly from the database (`session.cost`), which stores the ac
 
 ---
 
-### `prune` — bulk cleanup of old sessions
+### `prune` — alias for `delete` (bulk cleanup)
 
-Deletes sessions by age, project, or keeps a specified number of the most recent ones.
+Alias for `delete` with the same flags: `--older-than`, `--keep-last`, `--project`, `--dry-run`, `--force`.
 
 ```bash
-opencode-db prune --older-than 30d --dry-run    # preview deletions
-opencode-db prune --older-than 90d              # delete sessions older than 90 days
-opencode-db prune --older-than 6m               # older than 6 months
-opencode-db prune --older-than 1y               # older than 1 year
-opencode-db prune --keep-last 20                # keep the 20 most recent
-opencode-db prune --older-than 30d --keep-last 10  # combined filters
-opencode-db prune --project proj_xxx            # per project
-opencode-db prune --older-than 30d --force      # skip confirmation
+opencode-db prune --older-than 90d         # same as opencode-db delete --older-than 90d
+opencode-db prune --keep-last 20           # same as opencode-db delete --keep-last 20
 ```
 
 Time spec formats: `30d` (days), `6m` (months), `1y` (years).
-
-| Flag | Description |
-|---|---|
-| `--older-than SPEC` | Delete sessions older than the given duration |
-| `--keep-last N` | Keep N most recent sessions |
-| `--project ID` | Limit to a specific project |
-| `--dry-run` | Only show what would be deleted |
-| `--force`, `-f` | Skip confirmation prompt |
 
 ---
 
