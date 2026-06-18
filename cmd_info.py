@@ -1,9 +1,7 @@
 """Команда info: детальная информация о сессии."""
 
-# import db as db_module
-from typing import Literal
-
 from db import (
+    SessionError,
     get_children_sessions,
     get_message_count,
     get_parent_session,
@@ -24,8 +22,12 @@ def register(subparsers) -> None:
     p.add_argument("--json", action="store_true", help="JSON output")
 
 
-def run(args, db) -> Literal[0]:
-    info = get_session_info(db, args.session_id)
+def run(args, db) -> int:
+    try:
+        info = get_session_info(db, args.session_id)
+    except SessionError as e:
+        print(e.message)
+        return 1
     session_id = info["id"]
     msg_count = get_message_count(db, session_id)
     part_count = get_part_count(db, session_id)

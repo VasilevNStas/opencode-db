@@ -1,8 +1,7 @@
 """Команда delete: удаление сессии."""
 
-from typing import Literal
-
 from db import (
+    SessionError,
     get_message_count,
     get_part_count,
     get_session_info,
@@ -20,8 +19,12 @@ def register(subparsers) -> None:
     p.add_argument("--force", "-f", action="store_true", help="Skip confirmation")
 
 
-def run(args, db) -> Literal[0]:
-    info = get_session_info(db, args.session_id)
+def run(args, db) -> int:
+    try:
+        info = get_session_info(db, args.session_id)
+    except SessionError as e:
+        print(e.message)
+        return 1
     session_id = info["id"]
     title = get_session_title(info)
     model = parse_model(info)
