@@ -171,3 +171,48 @@ class TestFormatPartToMd:
             full=True,
         )
         assert "line" in result
+
+    def test_unknown_type_returns_empty(self):
+        result = format_part_to_md({"type": "unknown_type"})
+        assert result == ""
+
+    def test_empty_part_returns_empty(self):
+        result = format_part_to_md({"type": "text", "text": ""})
+        assert result == ""
+
+    def test_tool_without_input_key(self):
+        result = format_part_to_md(
+            {
+                "type": "tool",
+                "tool": "bash",
+            }
+        )
+        assert "bash" in result
+
+    def test_tool_with_null_output(self):
+        result = format_part_to_md(
+            {
+                "type": "tool",
+                "tool": "bash",
+                "input": {"command": "ls"},
+                "output": None,
+                "status": "completed",
+            }
+        )
+        assert "bash" in result
+
+    def test_tool_with_unknown_status(self):
+        result = format_part_to_md(
+            {
+                "type": "tool",
+                "tool": "bash",
+                "input": {"command": "ls"},
+                "output": "",
+                "status": "unknown",
+            }
+        )
+        assert "🔧" in result
+
+    def test_reasoning_empty_text(self):
+        result = format_part_to_md({"type": "reasoning", "text": ""})
+        assert result == ""

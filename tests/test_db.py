@@ -275,3 +275,75 @@ class TestGetMessages:
         )
         messages = get_messages(db, "ses_001")
         assert len(messages) == 2
+
+
+class TestEdgeCases:
+    def test_session_null_title_and_model(self, db) -> None:
+        db.execute(
+            "INSERT INTO session (id, time_created, title, model, cost) VALUES (?, ?, ?, ?, ?)",
+            ("ses_null_meta", 50000, None, None, 0.0),
+        )
+        db.commit()
+        info = get_session_info(db, "ses_null_meta")
+        assert info["title"] is None
+        assert info["model"] is None
+
+    def test_session_zero_cost(self, db) -> None:
+        db.execute(
+            "INSERT INTO session (id, time_created, cost) VALUES (?, ?, ?)",
+            ("ses_zero_cost", 55000, 0.0),
+        )
+        db.commit()
+        info = get_session_info(db, "ses_zero_cost")
+        assert info["cost"] == 0.0
+
+    def test_session_null_parent(self, db) -> None:
+        db.execute(
+            "INSERT INTO session (id, time_created, parent_id) VALUES (?, ?, ?)",
+            ("ses_orphan", 60000, None),
+        )
+        db.commit()
+        children = get_children_sessions(db, "ses_orphan")
+        assert children == []
+
+    def test_part_without_type_has_empty_parts(self, db) -> None:
+        db.execute(
+            "INSERT INTO session (id, time_created) VALUES (?, ?)",
+            ("ses_skip", 1000),
+        )
+        db.execute(
+            "INSERT INTO message (id, session_id, time_created, data) VALUES (?, ?, ?, ?)",
+            ("msg_skip", "ses_skip", 1000, json.dumps({"role": "user"})),
+        )
+        db.execute(
+            "INSERT INTO part (id, message_id, session_id, time_created, data) VALUES (?, ?, ?, ?, ?)",
+            ("part_skip", "msg_skip", "ses_skip", 1000, json.dumps({"text": "no type"})),
+        )
+        db.commit()
+        messages = get_messages(db, "ses_skip")
+        assert len(messages) == 1
+        assert len(messages[0]["parts"]) == 0
+
+    def test_message_null_role(self, db) -> None:
+        db.execute(
+            "INSERT INTO session (id, time_created) VALUES (?, ?)",
+            ("ses_edge_b", 2000),
+        )
+        db.execute(
+            "INSERT INTO message (id, session_id, time_created, data) VALUES (?, ?, ?, ?)",
+            ("msg_edge_b", "ses_edge_b", 2000, json.dumps({"role": None})),
+        )
+        db.execute(
+            "INSERT INTO part (id, message_id, session_id, time_created, data) VALUES (?, ?, ?, ?, ?)",
+            (
+                "part_edge_b",
+                "msg_edge_b",
+                "ses_edge_b",
+                2000,
+                json.dumps({"type": "text", "text": "hi"}),
+            ),
+        )
+        db.commit()
+        messages = get_messages(db, "ses_edge_b")
+        assert len(messages) == 1
+        assert messages[0]["role"] is None or messages[0]["role"] == "?"
