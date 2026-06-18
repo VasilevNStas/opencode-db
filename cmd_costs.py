@@ -3,9 +3,7 @@
 Стоимость берётся напрямую из поля session.cost БД OpenCode.
 """
 
-from typing import Literal
-
-from db import get_session_info, get_session_title, parse_model
+from db import SessionError, get_session_info, get_session_title, parse_model
 from i18n import _
 from utils import format_cost, format_tokens
 
@@ -19,7 +17,7 @@ def register(subparsers) -> None:
     p.add_argument("--limit", type=int, default=30, help="Max rows")
 
 
-def run(args, db) -> Literal[0]:
+def run(args, db) -> int:
     if args.session_id:
         return _show_session(db, args.session_id, args.json)
 
@@ -29,8 +27,12 @@ def run(args, db) -> Literal[0]:
     return _show_list(db, args.project, args.limit, args.json)
 
 
-def _show_session(db, session_id, as_json) -> Literal[0]:
-    info = get_session_info(db, session_id)
+def _show_session(db, session_id, as_json) -> int:
+    try:
+        info = get_session_info(db, session_id)
+    except SessionError as e:
+        print(e.message)
+        return 1
     title = get_session_title(info)
     model = parse_model(info)
 
@@ -73,7 +75,7 @@ def _show_session(db, session_id, as_json) -> Literal[0]:
     return 0
 
 
-def _show_total(db, project_id, as_json) -> Literal[0]:
+def _show_total(db, project_id, as_json) -> int:
     where = "1=1"
     params = []
 
@@ -126,7 +128,7 @@ def _show_total(db, project_id, as_json) -> Literal[0]:
     return 0
 
 
-def _show_list(db, project_id, limit, as_json) -> Literal[0]:
+def _show_list(db, project_id, limit, as_json) -> int:
     where = "1=1"
     params = []
 

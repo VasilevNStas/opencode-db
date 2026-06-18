@@ -7,9 +7,9 @@
 """
 
 import os
-from typing import Literal
 
 from db import (
+    SessionError,
     get_latest_session,
     get_messages,
     get_recent_sessions,
@@ -47,20 +47,28 @@ def register(subparsers) -> None:
     )
 
 
-def _export_by_id(db, session_id, output_dir, force, note, full) -> Literal[1] | Literal[0]:
-    session_info = get_session_info(db, session_id)
+def _export_by_id(db, session_id, output_dir, force, note, full) -> int:
+    try:
+        session_info = get_session_info(db, session_id)
+    except SessionError as e:
+        print(e.message)
+        return 1
     return _do_export(db, session_info, output_dir, force, note, full)
 
 
-def _export_latest(db, output_dir, force, note, full) -> Literal[1] | Literal[0]:
-    session_id = get_latest_session(db)
-    session_info = get_session_info(db, session_id)
+def _export_latest(db, output_dir, force, note, full) -> int:
+    try:
+        session_id = get_latest_session(db)
+        session_info = get_session_info(db, session_id)
+    except SessionError as e:
+        print(e.message)
+        return 1
     title = get_session_title(session_info)
     print(_("session.latest", title=title))
     return _do_export(db, session_info, output_dir, force, note, full)
 
 
-def _export_interactive(db, output_dir, force, note, full) -> Literal[1] | Literal[0]:
+def _export_interactive(db, output_dir, force, note, full) -> int:
     sessions = get_recent_sessions(db)
 
     if not sessions:
@@ -102,11 +110,15 @@ def _export_interactive(db, output_dir, force, note, full) -> Literal[1] | Liter
     session_id = sessions[idx]["id"]
     title = get_session_title(sessions[idx])
     print(_("export.interactive_exporting", title=title))
-    session_info = get_session_info(db, session_id)
+    try:
+        session_info = get_session_info(db, session_id)
+    except SessionError as e:
+        print(e.message)
+        return 1
     return _do_export(db, session_info, output_dir, force, note, full)
 
 
-def _do_export(db, session_info, output_dir, force, note, full=False) -> Literal[1] | Literal[0]:
+def _do_export(db, session_info, output_dir, force, note, full=False) -> int:
     """Внутренняя функция: экспорт диалога."""
     title = get_session_title(session_info)
     model = parse_model(session_info)
@@ -176,7 +188,7 @@ def _do_export(db, session_info, output_dir, force, note, full=False) -> Literal
     return 0
 
 
-def run(args, db) -> Literal[1] | Literal[0]:
+def run(args, db) -> int:
     output_dir = args.output or os.getcwd()
     full = args.full
 
