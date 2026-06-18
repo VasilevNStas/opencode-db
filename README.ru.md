@@ -22,6 +22,31 @@ opencode-db costs --total  # общие расходы
 - OpenCode (должен быть хотя бы раз запущен — создаётся БД)
 - macOS / Linux
 
+### Расположение базы данных
+
+По умолчанию `opencode-db` ищет БД OpenCode в стандартном пути:
+
+```
+~/.local/share/opencode/opencode.db
+```
+
+Если твой OpenCode хранит БД в другом месте — есть два способа указать путь:
+
+**1. Переменная окружения** — задаётся один раз в профиле (`.zshrc`, `.bashrc`):
+
+```bash
+export OPENCODE_DB=/путь/к/opencode.db
+```
+
+**2. Глобальный флаг `--db-path`** — для разовых задач или просмотра другой БД:
+
+```bash
+opencode-db --db-path /путь/к/opencode.db list
+opencode-db --db-path /путь/к/opencode.db stats
+```
+
+Флаг `--db-path` имеет приоритет над переменной окружения.
+
 ### Быстрая установка
 
 ```bash

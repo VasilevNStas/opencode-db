@@ -26,6 +26,31 @@ opencode-db costs --total  # total token costs
 - OpenCode (must have been run at least once — the database is created automatically)
 - macOS / Linux
 
+### Database location
+
+By default, `opencode-db` looks for OpenCode's database at:
+
+```
+~/.local/share/opencode/opencode.db
+```
+
+If your OpenCode stores the database at a custom path, you have two options:
+
+**1. Environment variable** — set it once in your shell profile (`.zshrc`, `.bashrc`):
+
+```bash
+export OPENCODE_DB=/path/to/opencode.db
+```
+
+**2. Global `--db-path` flag** — for ad-hoc use or inspecting another database:
+
+```bash
+opencode-db --db-path /path/to/opencode.db list
+opencode-db --db-path /path/to/opencode.db stats
+```
+
+The `--db-path` flag takes precedence over the environment variable.
+
 ### One-command install (recommended)
 
 ```bash

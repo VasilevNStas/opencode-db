@@ -8,6 +8,7 @@
 """
 
 import argparse
+import os
 import sys
 from typing import Any, Literal
 
@@ -27,6 +28,12 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["en", "ru"],
         default=None,
         help="Output language / язык вывода (en/ru)",
+    )
+    parser.add_argument(
+        "--db-path",
+        type=str,
+        default=None,
+        help="Path to opencode.db (default: ~/.local/share/opencode/opencode.db)",
     )
 
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -57,6 +64,9 @@ def main(argv=None) -> Any | Literal[0] | Literal[1]:
 
     if args.lang:
         set_lang(args.lang)
+
+    if args.db_path:
+        os.environ["OPENCODE_DB"] = args.db_path
 
     db = get_db()
 
