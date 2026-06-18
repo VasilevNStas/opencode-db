@@ -1,8 +1,6 @@
 """Команда todos: просмотр задач (todo) из сессий."""
 
-from typing import Literal
-
-from db import resolve_session_id
+from db import SessionError, resolve_session_id
 from i18n import _
 from utils import format_ts
 
@@ -19,12 +17,16 @@ def register(subparsers) -> None:
     p.add_argument("--json", action="store_true", help="JSON output")
 
 
-def run(args, db) -> Literal[0]:
+def run(args, db) -> int:
     conditions = []
     params = []
 
     if args.session_id:
-        full_id = resolve_session_id(db, args.session_id)
+        try:
+            full_id = resolve_session_id(db, args.session_id)
+        except SessionError as e:
+            print(e.message)
+            return 1
         conditions.append("t.session_id = ?")
         params.append(full_id)
 

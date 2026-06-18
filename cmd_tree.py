@@ -1,8 +1,6 @@
 """Команда tree: дерево ветвления сессий."""
 
-from typing import Literal
-
-from db import get_session_title, resolve_session_id
+from db import SessionError, get_session_title, resolve_session_id
 from i18n import _
 from utils import format_ts
 
@@ -55,9 +53,13 @@ def _build_tree(db, parent_id, depth, max_depth, indent=0, visited=None):
     return lines
 
 
-def run(args, db) -> Literal[0]:
+def run(args, db) -> int:
     if args.session_id:
-        full_id = resolve_session_id(db, args.session_id)
+        try:
+            full_id = resolve_session_id(db, args.session_id)
+        except SessionError as e:
+            print(e.message)
+            return 1
         info = db.execute(
             "SELECT id, title, time_created FROM session WHERE id = ?", (full_id,)
         ).fetchone()

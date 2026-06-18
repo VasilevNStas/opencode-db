@@ -6,6 +6,18 @@ def _ns(**kwargs) -> argparse.Namespace:
     return argparse.Namespace(**kwargs)
 
 
+def _count_sessions(db) -> int:
+    return db.execute("SELECT COUNT(*) FROM session").fetchone()[0]
+
+
+def _count_messages(db) -> int:
+    return db.execute("SELECT COUNT(*) FROM message").fetchone()[0]
+
+
+def _count_parts(db) -> int:
+    return db.execute("SELECT COUNT(*) FROM part").fetchone()[0]
+
+
 class TestListCommand:
     def test_list_default(self, db):
         from cmd_list import run
@@ -418,3 +430,80 @@ class TestExportCommand:
             output=str(tmp_path),
         )
         assert run(args, db) == 0
+
+
+class TestPruneCommand:
+    def test_prune_filter_required(self, db) -> None:
+        from cmd_prune import run
+
+        args = _ns(older_than=None, keep_last=None, project=None, dry_run=False, force=False)
+        assert run(args, db) == 1
+
+    def test_prune_dry_run_older_than(self, db) -> None:
+        from cmd_prune import run
+
+        args = _ns(older_than="30d", keep_last=None, project=None, dry_run=True, force=True)
+        assert run(args, db) == 0
+
+    def test_prune_dry_run_keep_last(self, db) -> None:
+        from cmd_prune import run
+
+        args = _ns(older_than=None, keep_last=2, project=None, dry_run=True, force=True)
+        assert run(args, db) == 0
+        assert _count_sessions(db) == 4
+
+    def test_prune_force_older_than(self, db) -> None:
+        from cmd_prune import run
+
+        args = _ns(older_than="1d", keep_last=None, project=None, dry_run=False, force=True)
+        result = run(args, db)
+        assert result == 0
+        remaining = _count_sessions(db)
+        assert remaining < 4
+
+    def test_prune_by_project(self, db) -> None:
+        from cmd_prune import run
+
+        args = _ns(older_than=None, keep_last=None, project="proj_002", dry_run=True, force=True)
+        assert run(args, db) == 0
+
+    def test_prune_bad_spec(self, db) -> None:
+        from cmd_prune import run
+
+        args = _ns(older_than="invalid", keep_last=None, project=None, dry_run=False, force=True)
+        assert run(args, db) == 1
+
+    def test_prune_canceled(self, db) -> None:
+        from cmd_prune import run
+
+        args = _ns(older_than="30d", keep_last=None, project=None, dry_run=False, force=False)
+        with patch("cmd_prune.confirm", return_value=False):
+            assert run(args, db) == 0
+        assert _count_sessions(db) == 4
+
+    def test_prune_deletes_messages_and_parts(self, db) -> None:
+        from cmd_prune import run
+
+        total_msg = _count_messages(db)
+        total_parts = _count_parts(db)
+        assert total_msg > 0
+        assert total_parts > 0
+
+        args = _ns(older_than="1d", keep_last=None, project=None, dry_run=False, force=True)
+        assert run(args, db) == 0
+
+        assert _count_messages(db) < total_msg
+        assert _count_parts(db) < total_parts
+
+    def test_prune_keep_last_preserves_recent(self, db) -> None:
+        from cmd_prune import run
+
+        args = _ns(older_than=None, keep_last=10, project=None, dry_run=True, force=True)
+        assert run(args, db) == 0
+
+    def test_prune_none_to_delete(self, db) -> None:
+        from cmd_prune import run
+
+        args = _ns(older_than="100y", keep_last=None, project=None, dry_run=False, force=True)
+        assert run(args, db) == 0
+        assert _count_sessions(db) == 4
