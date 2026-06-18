@@ -1,5 +1,8 @@
 # opencode-db
 
+[![Python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 **OpenCode database CLI manager** — browse, export, analyze, and clean up agent sessions.
 
 ```bash
