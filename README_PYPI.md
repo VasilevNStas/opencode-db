@@ -13,10 +13,27 @@ pip install opencode-db
 
 ```bash
 opencode-db list         # recent sessions
+opencode-db view         # interactive session viewer (colored, scrollable)
 opencode-db stats        # database summary
 opencode-db costs --total  # total token costs
 opencode-db export       # export dialog to .md (interactive)
 opencode-db help         # full reference
+```
+
+## Features
+
+- **`view`** — просмотр сессии в терминале с ANSI-цветами, Markdown-рендерингом и прокруткой через `less`
+- **`list`** / **`info`** / **`search`** / **`tree`** — навигация и поиск по сессиям
+- **`export`** — экспорт диалога в Markdown (с поддержкой Obsidian)
+- **`delete`** / **`prune`** — удаление и массовая очистка с фильтрами
+- **`costs`** / **`stats`** — аналитика токенов и расходов
+- **`--db-path`** / **`OPENCODE_DB`** — кастомный путь к БД
+
+## Optional extras
+
+```bash
+pip install opencode-db[rich]   # enhanced Markdown rendering (recommended)
+pip install opencode-db         # zero external dependencies
 ```
 
 ## Requirements

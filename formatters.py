@@ -15,28 +15,61 @@ def print_json(data: Any) -> None:
     print(json.dumps(data, ensure_ascii=False, indent=2, default=str))
 
 
-def print_table_simple(headers: list[str], rows: list[list], sep: str = "  ") -> None:
-    """Выводит таблицу с авто-шириной колонок."""
+def print_table_simple(
+    headers: list[str],
+    rows: list[list],
+    sep: str = "  ",
+) -> None:
+    """Выводит таблицу с рамкой и колонками.
+
+    Формат:
+      ┌──────┬───────────┐
+      │ ID   │ Title     │
+      ├──────┼───────────┤
+      │ abc  │ Session 1 │
+      └──────┴───────────┘
+    """
     if not rows:
         print(_("empty"))
         return
 
+    ncols = len(headers)
+    pad = 1  # padding inside each cell
+
+    # compute column widths
     widths = []
-    for ci in range(len(headers)):
+    for ci in range(ncols):
         max_w = len(headers[ci])
         for row in rows:
             max_w = max(max_w, len(str(row[ci])))
-        widths.append(min(max_w + 1, 80))
+        widths.append(min(max_w + pad * 2, 80))
 
-    line = sep.join(h.ljust(widths[i])[: widths[i]] for i, h in enumerate(headers))
-    sep_line = "─" * len(line)
+    tl = "┌"  # top-left
+    tm = "┬"  # top-middle
+    tr = "┐"  # top-right
+    ml = "├"  # middle-left
+    mm = "┼"  # middle-middle
+    mr = "┤"  # middle-right
+    bl = "└"  # bottom-left
+    bm = "┴"  # bottom-middle
+    br = "┘"  # bottom-right
+    ve = "│"  # vertical edge
+
+    top = tl + tm.join("─" * w for w in widths) + tr
+    sep = ml + mm.join("─" * w for w in widths) + mr
+    bot = bl + bm.join("─" * w for w in widths) + br
+
+    header_cells = [h.center(widths[ci])[: widths[ci]] for ci, h in enumerate(headers)]
+    header_line = ve + ve.join(header_cells) + ve
 
     print()
-    print(line)
-    print(sep_line)
+    print(top)
+    print(header_line)
+    print(sep)
     for row in rows:
-        line = sep.join(str(row[i]).ljust(widths[i])[: widths[i]] for i in range(len(headers)))
-        print(line)
+        cells = [str(row[ci]).ljust(widths[ci])[: widths[ci]] for ci in range(ncols)]
+        print(ve + ve.join(cells) + ve)
+    print(bot)
     print(_("fmt.rows_count", n=len(rows)))
 
 

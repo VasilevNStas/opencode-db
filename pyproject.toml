@@ -4,10 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "opencode-db"
-version = "0.6.2"
+version = "0.7.0"
 description = "OpenCode database CLI manager — browse, export, analyze, clean up sessions"
 readme = "README_PYPI.md"
 requires-python = ">=3.12"
+
+[project.optional-dependencies]
+rich = ["rich>=13.0"]
+all = ["opencode-db[rich]"]
 
 [project.urls]
 Homepage = "https://github.com/VasilevNStas/opencode-db"
@@ -23,6 +27,7 @@ py-modules = [
     "cmd_costs", "cmd_delete", "cmd_export", "cmd_help",
     "cmd_info", "cmd_list", "cmd_projects", "cmd_prune",
     "cmd_search", "cmd_stats", "cmd_todos", "cmd_tree", "cmd_vacuum",
+    "cmd_view", "markdown_to_ansi",
 ]
 packages = ["commands"]
 

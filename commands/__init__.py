@@ -23,6 +23,7 @@ import cmd_stats
 import cmd_todos
 import cmd_tree
 import cmd_vacuum
+import cmd_view
 
 # Словарь {имя_команды: модуль}
 # Модуль должен иметь register(subparsers) и run(args, db)
@@ -39,6 +40,7 @@ COMMANDS = {
     "stats": cmd_stats,
     "todos": cmd_todos,
     "vacuum": cmd_vacuum,
+    "view": cmd_view,
     "help": cmd_help,
 }
 
