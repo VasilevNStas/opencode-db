@@ -507,3 +507,195 @@ class TestPruneCommand:
         args = _ns(older_than="100y", keep_last=None, project=None, dry_run=False, force=True)
         assert run(args, db) == 0
         assert _count_sessions(db) == 4
+
+
+class TestViewCommand:
+    def test_view_by_id(self, db) -> None:
+        from cmd_view import run
+
+        args = _ns(session_id="ses_001", latest=False, no_pager=True, raw=True)
+        assert run(args, db) == 0
+
+    def test_view_latest(self, db) -> None:
+        from cmd_view import run
+
+        args = _ns(session_id=None, latest=True, no_pager=True, raw=True)
+        assert run(args, db) == 0
+
+    def test_view_interactive(self, db) -> None:
+        from cmd_view import run
+
+        args = _ns(session_id=None, latest=False, no_pager=True, raw=True)
+        with patch("builtins.input", return_value="1"):
+            assert run(args, db) == 0
+
+    def test_view_interactive_abort(self, db) -> None:
+        from cmd_view import run
+
+        args = _ns(session_id=None, latest=False, no_pager=True, raw=True)
+        with patch("builtins.input", return_value=""):
+            assert run(args, db) == 1
+
+    def test_view_interactive_bad_number(self, db) -> None:
+        from cmd_view import run
+
+        args = _ns(session_id=None, latest=False, no_pager=True, raw=True)
+        with patch("builtins.input", side_effect=["99", "1"]):
+            assert run(args, db) == 0
+
+    def test_view_not_found(self, db) -> None:
+        from cmd_view import run
+
+        args = _ns(session_id="nonexistent", latest=False, no_pager=True, raw=True)
+        assert run(args, db) == 1
+
+    def test_view_unknown_session_prefix(self, db) -> None:
+        from cmd_view import run
+
+        args = _ns(session_id="zzz", latest=False, no_pager=True, raw=True)
+        assert run(args, db) == 1
+
+    def test_view_output_contains_session_data(self, db) -> None:
+        from cmd_view import _format_session, _init_styles
+
+        info = {
+            "id": "ses_001",
+            "title": "First session",
+            "model": '{"id": "gpt-4"}',
+            "agent": "assistant",
+            "cost": 0.05,
+            "tokens_input": 100,
+            "tokens_output": 200,
+            "tokens_reasoning": 50,
+            "tokens_cache_read": 10,
+            "tokens_cache_write": 20,
+            "time_created": 1000000,
+            "time_updated": 1003600,
+            "project_id": "proj_001",
+            "parent_id": None,
+            "directory": "/home/user/proj1",
+            "version": "v1",
+            "summary_additions": 10,
+            "summary_deletions": 5,
+            "summary_files": 3,
+        }
+        from db import get_messages
+
+        messages = get_messages(db, "ses_001")
+        sty = _init_styles(raw=True)
+        text = _format_session(db, info, messages, sty)
+
+        assert "ses_001" in text
+        assert "First session" in text
+        assert "gpt-4" in text
+        assert "Hello, how are you?" in text
+        assert "I'm fine, thank you!" in text
+
+    def test_format_part_ansi_text(self) -> None:
+        from cmd_view import _format_part_ansi, _init_styles
+
+        sty = _init_styles(raw=True)
+        result = _format_part_ansi({"type": "text", "text": "Hello world"}, sty)
+        assert result == "Hello world"
+
+    def test_format_part_ansi_reasoning(self) -> None:
+        from cmd_view import _format_part_ansi, _init_styles
+
+        sty = _init_styles(raw=True)
+        result = _format_part_ansi({"type": "reasoning", "text": "Let me think..."}, sty)
+        assert "Let me think..." in result
+
+    def test_format_part_ansi_sound(self) -> None:
+        from cmd_view import _format_part_ansi, _init_styles
+
+        sty = _init_styles(raw=True)
+        result = _format_part_ansi({"type": "sound"}, sty)
+        assert result
+
+    def test_format_part_ansi_tool_read(self) -> None:
+        from cmd_view import _format_part_ansi, _init_styles
+
+        sty = _init_styles(raw=True)
+        result = _format_part_ansi(
+            {
+                "type": "tool",
+                "tool": "read",
+                "input": {"filePath": "/path/to/file.py"},
+                "output": "content",
+                "status": "completed",
+            },
+            sty,
+        )
+        assert "read" in result
+        assert "/path/to/file.py" in result
+
+    def test_format_part_ansi_tool_bash(self) -> None:
+        from cmd_view import _format_part_ansi, _init_styles
+
+        sty = _init_styles(raw=True)
+        result = _format_part_ansi(
+            {
+                "type": "tool",
+                "tool": "bash",
+                "input": {"command": "ls -la"},
+                "output": "total 42\nfile.py",
+                "status": "completed",
+            },
+            sty,
+        )
+        assert "bash" in result
+
+    def test_format_part_ansi_empty_text(self) -> None:
+        from cmd_view import _format_part_ansi, _init_styles
+
+        sty = _init_styles(raw=True)
+        result = _format_part_ansi({"type": "text", "text": ""}, sty)
+        assert result == ""
+
+    def test_format_part_ansi_empty_reasoning(self) -> None:
+        from cmd_view import _format_part_ansi, _init_styles
+
+        sty = _init_styles(raw=True)
+        result = _format_part_ansi({"type": "reasoning", "text": ""}, sty)
+        assert result == ""
+
+    def test_format_part_ansi_unknown_type(self) -> None:
+        from cmd_view import _format_part_ansi, _init_styles
+
+        sty = _init_styles(raw=True)
+        result = _format_part_ansi({"type": "unknown_type"}, sty)
+        assert result == ""
+
+    def test_init_styles_raw_disables_ansi(self) -> None:
+        from cmd_view import _init_styles
+
+        sty = _init_styles(raw=True)
+        assert sty == {}
+
+    def test_view_no_messages_session(self, db) -> None:
+        from cmd_view import _format_session, _init_styles
+
+        info = {
+            "id": "ses_empty",
+            "title": None,
+            "model": None,
+            "agent": None,
+            "cost": None,
+            "tokens_input": None,
+            "tokens_output": None,
+            "tokens_reasoning": None,
+            "tokens_cache_read": None,
+            "tokens_cache_write": None,
+            "time_created": 1000000,
+            "time_updated": 1003600,
+            "project_id": None,
+            "parent_id": None,
+            "directory": None,
+            "version": None,
+            "summary_additions": 0,
+            "summary_deletions": 0,
+            "summary_files": 0,
+        }
+        sty = _init_styles(raw=True)
+        text = _format_session(db, info, [], sty)
+        assert "конец сессии" in text or "end of session" in text

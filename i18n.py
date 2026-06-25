@@ -349,6 +349,65 @@ L: dict[str, dict[str, str]] = {
     "vacuum.done": {"ru": "✅", "en": "✅"},
     "vacuum.canceled": {"ru": "  Отменено.", "en": "  Canceled."},
     # ==================================================================
+    # VIEW
+    # ==================================================================
+    "view.header": {
+        "ru": "Просмотр сессии",
+        "en": "Session View",
+    },
+    "view.role_user": {
+        "ru": "Вы",
+        "en": "You",
+    },
+    "view.role_assistant": {
+        "ru": "Ассистент",
+        "en": "Assistant",
+    },
+    "view.no_messages": {
+        "ru": "⏳ Нет сообщений в этой сессии.",
+        "en": "⏳ No messages in this session.",
+    },
+    "view.no_sessions": {
+        "ru": "❌ Нет сессий для просмотра.",
+        "en": "❌ No sessions to view.",
+    },
+    "view.interactive_header": {
+        "ru": "Последние сессии:",
+        "en": "Recent sessions:",
+    },
+    "view.interactive_prompt": {
+        "ru": "Выбери номер (или Enter для отмены): ",
+        "en": "Pick a number (or Enter to cancel): ",
+    },
+    "view.interactive_error": {
+        "ru": "Введи число от 1 до {n}",
+        "en": "Enter a number from 1 to {n}",
+    },
+    "view.interactive_viewing": {
+        "ru": "  Просмотр: {title}",
+        "en": "  Viewing: {title}",
+    },
+    "view.interactive_abort": {
+        "ru": "  Отменено.",
+        "en": "  Canceled.",
+    },
+    "view.footer": {
+        "ru": "конец сессии",
+        "en": "end of session",
+    },
+    "view.flag.latest": {
+        "ru": "Просмотр самой свежей сессии",
+        "en": "View the most recent session",
+    },
+    "view.flag.no_pager": {
+        "ru": "Вывод без пейджера (просто печатать)",
+        "en": "Print without pager",
+    },
+    "view.flag.raw": {
+        "ru": "Без ANSI-цветов (обычный текст)",
+        "en": "Plain text, no ANSI colors",
+    },
+    # ==================================================================
     # HELP
     # ==================================================================
     "help.header_box_top": {
@@ -412,6 +471,7 @@ L: dict[str, dict[str, str]] = {
     "help.cmd.stats": {"ru": "Статистика БД", "en": "Database statistics"},
     "help.cmd.todos": {"ru": "Задачи из сессий", "en": "Tasks from sessions"},
     "help.cmd.vacuum": {"ru": "Оптимизация БД", "en": "Database optimization"},
+    "help.cmd.view": {"ru": "Просмотр сессии с прокруткой", "en": "View session with scrolling"},
     "help.cmd.help": {"ru": "Подробная справка", "en": "Detailed help"},
     # ==================================================================
     # HELP — примеры (epilog для argparse --help)
@@ -489,6 +549,26 @@ L: dict[str, dict[str, str]] = {
         "en": "VACUUM + REINDEX + ANALYZE with confirmation",
     },
     "help.vacuum.e1": {"ru": "Без подтверждения", "en": "Skip confirmation"},
+    "help.view.e0": {
+        "ru": "Просмотр по ID",
+        "en": "View by ID",
+    },
+    "help.view.e1": {
+        "ru": "Самая свежая сессия",
+        "en": "Most recent session",
+    },
+    "help.view.e2": {
+        "ru": "Интерактивный выбор из списка",
+        "en": "Interactive picker",
+    },
+    "help.view.e3": {
+        "ru": "Без пейджера (простой вывод)",
+        "en": "Without pager (plain output)",
+    },
+    "help.view.e4": {
+        "ru": "Без ANSI-цветов",
+        "en": "Without ANSI colors",
+    },
     "help.help.e0": {
         "ru": "Общая справка по всем командам",
         "en": "General help for all commands",
