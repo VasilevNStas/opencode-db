@@ -4,9 +4,9 @@ import argparse
 import os
 from typing import Literal
 
-from config import OPENCODE_DB
-from i18n import _
-from utils import build_help_epilog, confirm
+from ..config import OPENCODE_DB
+from ..i18n import _
+from ..utils import build_help_epilog, confirm
 
 _VACUUM_EXAMPLES = [
     ("", "help.vacuum.e0"),

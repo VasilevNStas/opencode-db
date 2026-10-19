@@ -3,9 +3,9 @@
 import argparse
 import json
 
-from db import SessionError, resolve_session_id
-from i18n import _
-from utils import build_help_epilog, format_ts
+from ..db import SessionError, resolve_session_id
+from ..i18n import _
+from ..utils import build_help_epilog, format_ts
 
 _SEARCH_EXAMPLES = [
     ('"text"', "help.search.e0"),
@@ -103,7 +103,7 @@ def run(args, db) -> int:
             break
 
     if args.json:
-        from formatters import print_json
+        from ..formatters import print_json
 
         print_json(results)
         return 0

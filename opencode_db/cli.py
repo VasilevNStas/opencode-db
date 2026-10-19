@@ -14,13 +14,13 @@ import os
 import sys
 from typing import Any, Literal
 
-from runtime import require_python
+from .runtime import require_python
 
 require_python()
 
-import commands  # noqa: E402
-from db import get_db  # noqa: E402
-from i18n import _, set_lang  # noqa: E402
+from . import commands  # noqa: E402
+from .db import get_db  # noqa: E402
+from .i18n import _, set_lang  # noqa: E402
 
 
 def build_parser() -> argparse.ArgumentParser:

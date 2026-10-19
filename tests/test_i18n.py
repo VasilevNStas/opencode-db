@@ -1,9 +1,9 @@
-from i18n import L, _, set_lang
+from opencode_db.i18n import L, _, set_lang
 
 
 class TestI18n:
     def test_default_lang_is_ru(self) -> None:
-        from i18n import current_lang
+        from opencode_db.i18n import current_lang
 
         assert current_lang in ("ru", "en")
 

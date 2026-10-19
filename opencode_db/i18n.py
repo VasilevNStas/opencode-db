@@ -1,7 +1,7 @@
 """Интернационализация: поддержка русского и английского языка.
 
 Использование:
-  from i18n import _, set_lang
+  from opencode_db.i18n import _, set_lang
 
   set_lang("en")
   print(_("list.header.id"))          # → "ID"

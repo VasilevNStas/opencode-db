@@ -8,6 +8,8 @@
 
 **OpenCode stores everything in a local SQLite database.** Every agent session, conversation, token usage, and cost is saved automatically. `opencode-db` is the CLI tool to work with that database — list sessions, export conversations to Markdown, track token costs, prune old data, and more.
 
+[Русская версия](docs/README.ru.md)
+
 ```
 opencode-db help        # full reference with examples
 opencode-db list        # list recent sessions
@@ -110,8 +112,8 @@ if sys.version_info < (3, 12):
 PKG_DIR = os.path.expanduser("~/.local/share/opencode-db")
 if PKG_DIR not in sys.path:
     sys.path.insert(0, PKG_DIR)
-import cli
-sys.exit(cli.main())
+from opencode_db.cli import main
+sys.exit(main())
 SCRIPT
 chmod +x ~/.local/bin/opencode-db
 ```
@@ -507,51 +509,54 @@ Example output:
 ## Project architecture
 
 ```
-~/.local/bin/opencode-db                  ← entry point (in $PATH)
+opencode-db/
+├── opencode_db/                          ← Python package (installed as opencode_db)
+│   ├── __init__.py                       ← package init + Python version guard
+│   ├── __main__.py                       ← python3 -m opencode_db
+│   ├── cli.py                            ← argparse + command dispatcher
+│   ├── config.py                         ← constants and paths
+│   ├── db.py                             ← SQLite queries
+│   ├── formatters.py                     ← tables, JSON, Markdown, snapshots
+│   ├── i18n.py                           ← localization (EN/RU, 280 keys)
+│   ├── markdown_to_ansi.py               ← Markdown → ANSI renderer for `view`
+│   ├── runtime.py                        ← Python 3.12+ version guard
+│   ├── utils.py                          ← date/token formatting, validation
+│   └── commands/
+│       ├── __init__.py                   ← command registry
+│       ├── cmd_list.py                   ← opencode-db list
+│       ├── cmd_info.py                   ← opencode-db info
+│       ├── cmd_export.py                 ← opencode-db export
+│       ├── cmd_delete.py                 ← opencode-db delete
+│       ├── cmd_costs.py                  ← opencode-db costs
+│       ├── cmd_prune.py                  ← opencode-db prune
+│       ├── cmd_search.py                 ← opencode-db search
+│       ├── cmd_tree.py                   ← opencode-db tree
+│       ├── cmd_projects.py               ← opencode-db projects
+│       ├── cmd_stats.py                  ← opencode-db stats
+│       ├── cmd_todos.py                  ← opencode-db todos
+│       ├── cmd_vacuum.py                 ← opencode-db vacuum
+│       ├── cmd_view.py                   ← opencode-db view
+│       └── cmd_help.py                   ← opencode-db help
 │
-~/.local/share/opencode-db/               ← all source code
-│
-├── __init__.py                           ← executable entry point
-├── __main__.py                           ← python3 . (directory entry point)
-├── cli.py                                ← argparse + command dispatcher
-│
-├── config.py                             ← constants and paths
-├── runtime.py                            ← Python 3.12+ version guard
-├── db.py                                 ← SQLite queries
-├── utils.py                              ← date/token formatting, validation
-├── formatters.py                         ← tables, JSON, Markdown, snapshots
-├── i18n.py                               ← localization (EN/RU, 280 keys)
-├── markdown_to_ansi.py                   ← Markdown → ANSI renderer for `view`
-│
-├── commands/
-│   └── __init__.py                       ← command registry
-│
-├── cmd_list.py                           ← opencode-db list
-├── cmd_info.py                           ← opencode-db info
-├── cmd_export.py                         ← opencode-db export
-├── cmd_delete.py                         ← opencode-db delete
-├── cmd_costs.py                          ← opencode-db costs
-├── cmd_prune.py                          ← opencode-db prune
-├── cmd_search.py                         ← opencode-db search
-├── cmd_tree.py                           ← opencode-db tree
-├── cmd_projects.py                       ← opencode-db projects
-├── cmd_stats.py                          ← opencode-db stats
-├── cmd_todos.py                          ← opencode-db todos
-├── cmd_vacuum.py                         ← opencode-db vacuum
-├── cmd_view.py                           ← opencode-db view
-└── cmd_help.py                           ← opencode-db help
-
-README.md                                 ← this file (English)
-README.ru.md                              ← documentation in Russian
-opencode-db-commands.json                 ← OpenCode TUI custom commands config
+├── docs/
+│   ├── README.ru.md                      ← documentation in Russian
+│   └── README_PYPI.md                    ← PyPI page
+├── contrib/
+│   └── opencode-db-commands.json         ← OpenCode TUI custom commands config
+├── tests/
+├── README.md                             ← this file (English)
+├── LICENSE
+├── Makefile
+├── pyproject.toml
+└── install.sh
 ```
 
 ### How it works
 
-1. The launcher script at `~/.local/bin/opencode-db` (a shebang Python script) adds `~/.local/share/opencode-db/` to `sys.path` and calls `cli.main()`.
+1. The console script `opencode-db` (or `python3 -m opencode_db`) imports `opencode_db.cli` and calls `main()`.
 2. `runtime.require_python()` checks the interpreter before importing `cli`/`db`; on Python < 3.12 it prints a clear message with remediation steps instead of failing with `ImportError`.
 3. `cli.py` builds an `argparse` parser with subparsers from every command module and dispatches the call.
-4. Each command is a separate `cmd_*.py` module exporting two functions: `register(subparsers)` and `run(args, db)`.
+4. Each command is a separate `opencode_db/commands/cmd_*.py` module exporting two functions: `register(subparsers)` and `run(args, db)`.
 5. `db.py` opens a connection to OpenCode's SQLite database (`~/.local/share/opencode/opencode.db`).
 6. Destructive operations (`delete`, `prune`) always require confirmation (or `--force`).
 
@@ -586,7 +591,7 @@ This runs the command directly and shows the output — **no tokens are consumed
 
 ### Custom `/db` command (uses AI, consumes tokens)
 
-Add the commands from `opencode-db-commands.json` to your project's `opencode.json`:
+Add the commands from `contrib/opencode-db-commands.json` to your project's `opencode.json`:
 
 ```json
 {
@@ -614,7 +619,7 @@ Then in the TUI:
 
 A ready-to-use config file is provided at:
 ```
-~/.local/share/opencode-db/opencode-db-commands.json
+~/.local/share/opencode-db/contrib/opencode-db-commands.json
 ```
 
 ---
@@ -737,7 +742,7 @@ make check          # check-python + ruff + 191 tests
 
 ### Adding a new command
 
-1. Create `cmd_xxx.py`:
+1. Create `opencode_db/commands/cmd_xxx.py`:
 
 ```python
 def register(subparsers):
@@ -749,7 +754,7 @@ def run(args, db):
     return 0
 ```
 
-2. Register it in `commands/__init__.py`:
+2. Register it in `opencode_db/commands/__init__.py`:
 
 ```python
 import cmd_xxx
@@ -767,7 +772,7 @@ python3 ~/.local/share/opencode-db list
 Or from the repository root (Python 3.12+):
 
 ```bash
-python3 . list
+python3 -m opencode_db list
 uvx --from . opencode-db list
 ```
 

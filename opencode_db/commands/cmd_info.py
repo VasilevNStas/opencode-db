@@ -2,7 +2,7 @@
 
 import argparse
 
-from db import (
+from ..db import (
     SessionError,
     get_children_sessions,
     get_message_count,
@@ -14,8 +14,8 @@ from db import (
     get_session_todos,
     parse_model,
 )
-from i18n import _
-from utils import build_help_epilog, format_cost, format_tokens, format_ts
+from ..i18n import _
+from ..utils import build_help_epilog, format_cost, format_tokens, format_ts
 
 _INFO_EXAMPLES = [
     ("<session_id>", "help.info.e0"),
@@ -104,7 +104,7 @@ def run(args, db) -> int:
         if parent:
             data["parent"] = {"id": parent["id"], "title": parent["title"]}
 
-        from formatters import print_json
+        from ..formatters import print_json
 
         print_json(data)
         return 0

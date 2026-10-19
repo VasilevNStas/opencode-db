@@ -4,6 +4,8 @@
 
 `opencode-db` — это CLI-утилита для работы с локальной базой данных OpenCode (SQLite). Она позволяет просматривать историю диалогов с AI-ассистентом, экспортировать диалоги в Markdown, анализировать расход токенов и стоимость, управлять хранилищем — удалять ненужные сессии и оптимизировать БД.
 
+[English version](../README.md)
+
 ```
 opencode-db help        # все команды, примеры, флаги
 opencode-db list        # последние сессии
@@ -107,8 +109,8 @@ if sys.version_info < (3, 12):
 PKG_DIR = os.path.expanduser("~/.local/share/opencode-db")
 if PKG_DIR not in sys.path:
     sys.path.insert(0, PKG_DIR)
-import cli
-sys.exit(cli.main())
+from opencode_db.cli import main
+sys.exit(main())
 SCRIPT
 chmod +x ~/.local/bin/opencode-db
 ```
@@ -514,47 +516,54 @@ opencode-db help --json                   # справка в JSON
 ## Архитектура проекта
 
 ```
-~/.local/bin/opencode-db                  ← точка входа (в PATH)
+opencode-db/
+├── opencode_db/                          ← Python-пакет (устанавливается как opencode_db)
+│   ├── __init__.py                       ← init пакета + проверка Python
+│   ├── __main__.py                       ← python3 -m opencode_db
+│   ├── cli.py                            ← argparse + диспетчер команд
+│   ├── config.py                         ← константы и пути
+│   ├── db.py                             ← запросы к SQLite
+│   ├── formatters.py                     ← таблицы, JSON, Markdown, snapshot
+│   ├── i18n.py                           ← локализация (EN/RU, 280 ключей)
+│   ├── markdown_to_ansi.py               ← Markdown → ANSI для `view`
+│   ├── runtime.py                        ← проверка Python 3.12+
+│   ├── utils.py                          ← форматирование дат, токенов, валидация
+│   └── commands/
+│       ├── __init__.py                   ← реестр команд
+│       ├── cmd_list.py                   ← opencode-db list
+│       ├── cmd_info.py                   ← opencode-db info
+│       ├── cmd_export.py                 ← opencode-db export
+│       ├── cmd_delete.py                 ← opencode-db delete
+│       ├── cmd_costs.py                  ← opencode-db costs
+│       ├── cmd_prune.py                  ← opencode-db prune
+│       ├── cmd_search.py                 ← opencode-db search
+│       ├── cmd_tree.py                   ← opencode-db tree
+│       ├── cmd_projects.py               ← opencode-db projects
+│       ├── cmd_stats.py                  ← opencode-db stats
+│       ├── cmd_todos.py                  ← opencode-db todos
+│       ├── cmd_vacuum.py                 ← opencode-db vacuum
+│       ├── cmd_view.py                   ← opencode-db view
+│       └── cmd_help.py                   ← opencode-db help
 │
-~/.local/share/opencode-db/               ← весь код
-│
-├── __init__.py                           ← исполняемая точка входа
-├── __main__.py                           ← python3 . (запуск каталога)
-├── cli.py                                ← argparse + диспетчер команд
-│
-├── config.py                             ← константы и пути
-├── runtime.py                            ← проверка Python 3.12+
-├── db.py                                 ← запросы к SQLite
-├── utils.py                              ← форматирование дат, токенов, валидация
-├── formatters.py                         ← таблицы, JSON, Markdown, snapshot
-├── i18n.py                               ← локализация (EN/RU, 280 ключей)
-├── markdown_to_ansi.py                   ← Markdown → ANSI для `view`
-│
-├── commands/
-│   └── __init__.py                       ← реестр команд
-│
-├── cmd_list.py                           ← opencode-db list
-├── cmd_info.py                           ← opencode-db info
-├── cmd_export.py                         ← opencode-db export
-├── cmd_delete.py                         ← opencode-db delete
-├── cmd_costs.py                          ← opencode-db costs
-├── cmd_prune.py                          ← opencode-db prune
-├── cmd_search.py                         ← opencode-db search
-├── cmd_tree.py                           ← opencode-db tree
-├── cmd_projects.py                       ← opencode-db projects
-├── cmd_stats.py                          ← opencode-db stats
-├── cmd_todos.py                          ← opencode-db todos
-├── cmd_vacuum.py                         ← opencode-db vacuum
-├── cmd_view.py                           ← opencode-db view
-└── cmd_help.py                           ← opencode-db help
+├── docs/
+│   ├── README.ru.md                      ← эта документация
+│   └── README_PYPI.md                    ← страница PyPI
+├── contrib/
+│   └── opencode-db-commands.json         ← команды для OpenCode TUI
+├── tests/
+├── README.md                             ← английская документация
+├── LICENSE
+├── Makefile
+├── pyproject.toml
+└── install.sh
 ```
 
 ### Как это работает
 
-1. Лаунчер `~/.local/bin/opencode-db` (шебанг + Python) добавляет `~/.local/share/opencode-db/` в `sys.path` и вызывает `cli.main()`.
+1. Console script `opencode-db` (или `python3 -m opencode_db`) импортирует `opencode_db.cli` и вызывает `main()`.
 2. `runtime.require_python()` проверяет интерпретатор до импорта `cli`/`db`: на Python < 3.12 выводится понятное сообщение с командами исправления вместо `ImportError`.
 3. `cli.py` собирает `argparse` с subparser'ами от всех команд и диспетчеризирует вызов.
-4. Каждая команда — отдельный модуль `cmd_*.py` с двумя функциями: `register(subparsers)` и `run(args, db)`.
+4. Каждая команда — отдельный модуль `opencode_db/commands/cmd_*.py` с двумя функциями: `register(subparsers)` и `run(args, db)`.
 5. `db.py` открывает соединение с SQLite-базой OpenCode (`~/.local/share/opencode/opencode.db`).
 6. Для опасных операций (`delete`, `prune`) используется подтверждение через `input()`.
 
@@ -589,7 +598,7 @@ project        — проекты: id, worktree, name
 
 ### Кастомная команда `/db` (через AI, тратит токены)
 
-Добавь команды из `opencode-db-commands.json` в `opencode.json` проекта:
+Добавь команды из `contrib/opencode-db-commands.json` в `opencode.json` проекта:
 
 ```json
 {
@@ -617,7 +626,7 @@ project        — проекты: id, worktree, name
 
 Готовый конфиг лежит в:
 ```
-~/.local/share/opencode-db/opencode-db-commands.json
+~/.local/share/opencode-db/contrib/opencode-db-commands.json
 ```
 
 ---
@@ -738,7 +747,7 @@ make check          # check-python + ruff + 191 тест
 
 ### Добавление новой команды
 
-1. Создайте `cmd_xxx.py`:
+1. Создайте `opencode_db/commands/cmd_xxx.py`:
 
 ```python
 def register(subparsers):
@@ -750,7 +759,7 @@ def run(args, db):
     return 0
 ```
 
-2. Зарегистрируйте в `commands/__init__.py`:
+2. Зарегистрируйте в `opencode_db/commands/__init__.py`:
 
 ```python
 import cmd_xxx
@@ -768,7 +777,7 @@ python3 ~/.local/share/opencode-db list
 Или из корня репозитория (Python 3.12+):
 
 ```bash
-python3 . list
+python3 -m opencode_db list
 uvx --from . opencode-db list
 ```
 

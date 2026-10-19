@@ -3,9 +3,9 @@
 import argparse
 from typing import Literal
 
-from db import parse_model
-from i18n import _
-from utils import build_help_epilog, format_cost, format_tokens, format_ts
+from ..db import parse_model
+from ..i18n import _
+from ..utils import build_help_epilog, format_cost, format_tokens, format_ts
 
 _STATS_EXAMPLES = [
     ("", "help.stats.e0"),
@@ -64,7 +64,7 @@ def run(args, db) -> Literal[0]:
     """).fetchall()
 
     if args.json:
-        from formatters import print_json
+        from ..formatters import print_json
 
         data = {
             "sessions": session_count,

@@ -12,8 +12,8 @@ import os
 import sqlite3
 import sys
 
-from config import OPENCODE_DB
-from i18n import _
+from .config import OPENCODE_DB
+from .i18n import _
 
 
 class SessionError(Exception):

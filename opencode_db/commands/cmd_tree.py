@@ -2,9 +2,9 @@
 
 import argparse
 
-from db import SessionError, get_session_title, resolve_session_id
-from i18n import _
-from utils import build_help_epilog, format_ts
+from ..db import SessionError, get_session_title, resolve_session_id
+from ..i18n import _
+from ..utils import build_help_epilog, format_ts
 
 _TREE_EXAMPLES = [
     ("", "help.tree.e0"),

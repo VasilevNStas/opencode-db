@@ -2,9 +2,9 @@
 
 import argparse
 
-from db import SessionError, resolve_session_id
-from i18n import _
-from utils import build_help_epilog, format_ts
+from ..db import SessionError, resolve_session_id
+from ..i18n import _
+from ..utils import build_help_epilog, format_ts
 
 _TODOS_EXAMPLES = [
     ("", "help.todos.e0"),
@@ -65,7 +65,7 @@ def run(args, db) -> int:
     ).fetchall()
 
     if args.json:
-        from formatters import print_json
+        from ..formatters import print_json
 
         data = []
         for r in rows:

@@ -3,8 +3,8 @@
 import argparse
 from typing import Literal
 
-from i18n import _
-from utils import build_help_epilog, format_cost, format_tokens, format_ts
+from ..i18n import _
+from ..utils import build_help_epilog, format_cost, format_tokens, format_ts
 
 _PROJECTS_EXAMPLES = [
     ("", "help.projects.e0"),
@@ -37,7 +37,7 @@ def run(args, db) -> Literal[0]:
     """).fetchall()
 
     if args.json:
-        from formatters import print_json
+        from ..formatters import print_json
 
         data = []
         for r in rows:
@@ -59,7 +59,7 @@ def run(args, db) -> Literal[0]:
         print_json(data)
         return 0
 
-    from formatters import print_table_simple
+    from ..formatters import print_table_simple
 
     table = []
     for r in rows:

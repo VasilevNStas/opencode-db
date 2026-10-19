@@ -6,8 +6,8 @@ import json
 import os
 from typing import Any
 
-from config import IGNORE_DIRS
-from i18n import _
+from .config import IGNORE_DIRS
+from .i18n import _
 
 
 def print_json(data: Any) -> None:

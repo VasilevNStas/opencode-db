@@ -309,6 +309,6 @@ def db_file(tmp_path):
 
 @pytest.fixture
 def parser():
-    from cli import build_parser
+    from opencode_db.cli import build_parser
 
     return build_parser()
