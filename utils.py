@@ -50,7 +50,7 @@ def parse_date(date_str: str) -> datetime | None:
         return None
 
 
-def parse_time_spec(spec) -> None | datetime:
+def parse_time_spec(spec) -> datetime | None:
     """Парсит спецификацию времени ('30d', '6m', '1y') в timedelta."""
     if not spec or not isinstance(spec, str):
         return None
