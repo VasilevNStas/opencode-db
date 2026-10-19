@@ -7,14 +7,20 @@
   - Единообразный интерфейс
 """
 
+from __future__ import annotations
+
 import argparse
 import os
 import sys
 from typing import Any, Literal
 
-import commands
-from db import get_db
-from i18n import _, set_lang
+from runtime import require_python
+
+require_python()
+
+import commands  # noqa: E402
+from db import get_db  # noqa: E402
+from i18n import _, set_lang  # noqa: E402
 
 
 def build_parser() -> argparse.ArgumentParser:

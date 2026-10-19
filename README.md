@@ -22,9 +22,10 @@ opencode-db costs --total  # total token costs
 
 ### Requirements
 
-- Python 3.12+
+- Python 3.12+ — `opencode-db` refuses to start on older interpreters with a clear message (no cryptic `ImportError`)
 - OpenCode (must have been run at least once — the database is created automatically)
 - macOS / Linux
+- [`uv`](https://docs.astral.sh/uv/) — optional, but recommended for installing and running on systems whose default `python3` is older than 3.12
 
 ### Database location
 
@@ -51,13 +52,26 @@ opencode-db --db-path /path/to/opencode.db stats
 
 The `--db-path` flag takes precedence over the environment variable.
 
-### One-command install (recommended)
+### Recommended: uv
+
+If your system `python3` is older than 3.12 (for example, macOS ships 3.9), use `uv` — it installs the tool into an isolated environment with a supported interpreter:
+
+```bash
+uv tool install opencode-db
+# with enhanced Markdown rendering:
+uv tool install "opencode-db[rich]"
+
+# one-off run without installing:
+uvx opencode-db stats
+```
+
+### One-command install
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/VasilevNStas/opencode-db/master/install.sh | sh
 ```
 
-Downloads everything to `~/.local/share/opencode-db/` and creates `~/.local/bin/opencode-db`.
+Downloads everything to `~/.local/share/opencode-db/` and creates `~/.local/bin/opencode-db`. The installer looks for Python 3.12+ (including interpreters managed by `uv` or `pyenv`) and writes the discovered path into the launcher shebang.
 
 ### pip / pipx install
 
@@ -67,7 +81,7 @@ pipx install opencode-db
 pip install opencode-db
 ```
 
-[Zero external dependencies](https://treyhunner.com/2015/12/python-imports-and-path-manipulation/) — pure Python standard library only.
+[Zero external dependencies](https://treyhunner.com/2015/12/python-imports-and-path-manipulation/) — pure Python standard library only (`rich` is optional).
 
 ### Manual install
 
@@ -82,7 +96,17 @@ git clone https://github.com/VasilevNStas/opencode-db.git ~/.local/share/opencod
 ```bash
 cat > ~/.local/bin/opencode-db << 'SCRIPT'
 #!/usr/bin/env python3
-import sys, os
+import os
+import sys
+
+if sys.version_info < (3, 12):
+    print(
+        "opencode-db requires Python 3.12+; current: %s (%s)"
+        % (".".join(map(str, sys.version_info[:3])), sys.executable),
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
 PKG_DIR = os.path.expanduser("~/.local/share/opencode-db")
 if PKG_DIR not in sys.path:
     sys.path.insert(0, PKG_DIR)
@@ -488,14 +512,16 @@ Example output:
 ~/.local/share/opencode-db/               ← all source code
 │
 ├── __init__.py                           ← executable entry point
-├── __main__.py                           ← python -m opencode_db
+├── __main__.py                           ← python3 . (directory entry point)
 ├── cli.py                                ← argparse + command dispatcher
 │
 ├── config.py                             ← constants and paths
+├── runtime.py                            ← Python 3.12+ version guard
 ├── db.py                                 ← SQLite queries
 ├── utils.py                              ← date/token formatting, validation
 ├── formatters.py                         ← tables, JSON, Markdown, snapshots
-├── i18n.py                               ← localization (EN/RU, 238 keys)
+├── i18n.py                               ← localization (EN/RU, 280 keys)
+├── markdown_to_ansi.py                   ← Markdown → ANSI renderer for `view`
 │
 ├── commands/
 │   └── __init__.py                       ← command registry
@@ -512,6 +538,7 @@ Example output:
 ├── cmd_stats.py                          ← opencode-db stats
 ├── cmd_todos.py                          ← opencode-db todos
 ├── cmd_vacuum.py                         ← opencode-db vacuum
+├── cmd_view.py                           ← opencode-db view
 └── cmd_help.py                           ← opencode-db help
 
 README.md                                 ← this file (English)
@@ -522,10 +549,11 @@ opencode-db-commands.json                 ← OpenCode TUI custom commands confi
 ### How it works
 
 1. The launcher script at `~/.local/bin/opencode-db` (a shebang Python script) adds `~/.local/share/opencode-db/` to `sys.path` and calls `cli.main()`.
-2. `cli.py` builds an `argparse` parser with subparsers from every command module and dispatches the call.
-3. Each command is a separate `cmd_*.py` module exporting two functions: `register(subparsers)` and `run(args, db)`.
-4. `db.py` opens a connection to OpenCode's SQLite database (`~/.local/share/opencode/opencode.db`).
-5. Destructive operations (`delete`, `prune`) always require confirmation (or `--force`).
+2. `runtime.require_python()` checks the interpreter before importing `cli`/`db`; on Python < 3.12 it prints a clear message with remediation steps instead of failing with `ImportError`.
+3. `cli.py` builds an `argparse` parser with subparsers from every command module and dispatches the call.
+4. Each command is a separate `cmd_*.py` module exporting two functions: `register(subparsers)` and `run(args, db)`.
+5. `db.py` opens a connection to OpenCode's SQLite database (`~/.local/share/opencode/opencode.db`).
+6. Destructive operations (`delete`, `prune`) always require confirmation (or `--force`).
 
 ### Database schema (key tables)
 
@@ -617,7 +645,7 @@ opencode-db --lang en help        # English help text
 opencode-db --lang en stats       # English statistics
 ```
 
-The `--lang` flag applies to any command. All 238 UI strings are translated. Data content (session titles, project names, etc.) remains in its original language.
+The `--lang` flag applies to any command. All 280 UI strings are translated. Data content (session titles, project names, etc.) remains in its original language.
 
 The language can also be set via environment variable `OPENCODE_DB_LANG=en`.
 
@@ -659,9 +687,53 @@ Use a longer prefix or the full session ID (use `list --json` to find it).
 
 If the database is being used by another process (e.g., OpenCode is running), VACUUM may fail. Close OpenCode and try again.
 
+### `ImportError: cannot import name 'UTC' from 'datetime'`
+
+This means `opencode-db` is running on Python older than 3.12 (for example, the system Python 3.9). Check:
+
+```bash
+python3 --version
+```
+
+Fix with `uv` (recommended):
+
+```bash
+uv python install 3.13
+uv tool install opencode-db
+opencode-db stats
+```
+
+Or run the repository checkout with an explicit interpreter:
+
+```bash
+uvx --from . opencode-db stats
+# alternative for a persistent dev environment:
+uv run --python 3.13 opencode-db stats
+```
+
+After changing the interpreter, rerun `install.sh` to regenerate the `~/.local/bin/opencode-db` launcher.
+
 ---
 
 ## Development
+
+### Local development
+
+Requires Python 3.12+ and `pytest`/`ruff`:
+
+```bash
+git clone https://github.com/VasilevNStas/opencode-db.git
+cd opencode-db
+
+uv venv --python 3.13
+source .venv/bin/activate
+uv pip install -e ".[rich]"
+uv pip install pytest ruff
+
+make check          # check-python + ruff + 191 tests
+```
+
+`make check` fails fast with a clear message if the active interpreter is older than 3.12.
 
 ### Adding a new command
 
@@ -692,10 +764,11 @@ The command will appear in `--help` automatically.
 python3 ~/.local/share/opencode-db list
 ```
 
-Or as a module:
+Or from the repository root (Python 3.12+):
 
 ```bash
-python3 -m opencode_db list
+python3 . list
+uvx --from . opencode-db list
 ```
 
 ---

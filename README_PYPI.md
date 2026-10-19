@@ -7,6 +7,9 @@
 
 ```bash
 pip install opencode-db
+
+# recommended if your system python3 is older than 3.12:
+uv tool install opencode-db
 ```
 
 ## Quick start
@@ -38,6 +41,6 @@ pip install opencode-db         # zero external dependencies
 
 ## Requirements
 
-- Python 3.12+
+- Python 3.12+ — the CLI checks the interpreter at startup and exits with a clear message instead of an `ImportError` on older versions
 - [OpenCode](https://opencode.ai) (must have been run at least once)
 - macOS / Linux
