@@ -728,7 +728,7 @@ cd opencode-db
 uv venv --python 3.13
 source .venv/bin/activate
 uv pip install -e ".[rich]"
-uv pip install pytest ruff
+uv pip install pytest ruff==0.17.1
 
 make check          # check-python + ruff + 191 tests
 ```
