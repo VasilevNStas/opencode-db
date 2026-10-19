@@ -21,21 +21,44 @@ NC='\033[0m'
 echo "==> opencode-db installer"
 echo ""
 
-# --- 1. Check Python ---
-if ! command -v python3 >/dev/null 2>&1; then
-    echo "ERROR: Python 3 not found. Install Python 3.12+ first."
-    echo "  https://www.python.org/downloads/"
+# --- 1. Find a supported Python ---
+find_python() {
+    for candidate in python3.13 python3.12 python3; do
+        if command -v "${candidate}" >/dev/null 2>&1 \
+            && "${candidate}" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3, 12) else 1)' >/dev/null 2>&1; then
+            command -v "${candidate}"
+            return 0
+        fi
+    done
+
+    # uv can manage Python versions for us.
+    if command -v uv >/dev/null 2>&1; then
+        for spec in '>=3.12' '3.13' '3.12'; do
+            candidate=$(uv python find "${spec}" 2>/dev/null || true)
+            case "${candidate}" in
+                */.venv/*) continue ;;
+            esac
+            if [ -n "${candidate}" ] && [ -x "${candidate}" ]; then
+                printf '%s\n' "${candidate}"
+                return 0
+            fi
+        done
+    fi
+
+    return 1
+}
+
+if ! PYTHON_BIN=$(find_python); then
+    echo "ERROR: opencode-db requires Python 3.12+."
+    echo "  Recommended (uv):"
+    echo "    uv python install 3.13"
+    echo "    uv tool install --editable ."
+    echo "  Or install Python 3.12+ and rerun this installer."
     exit 1
 fi
 
-PY_MAJOR=$(python3 -c 'import sys; print(sys.version_info.major)')
-PY_MINOR=$(python3 -c 'import sys; print(sys.version_info.minor)')
-
-if [ "${PY_MAJOR}" -lt 3 ] || [ "${PY_MAJOR}" -eq 3 -a "${PY_MINOR}" -lt 12 ]; then
-    echo "ERROR: Python 3.12+ required (found ${PY_MAJOR}.${PY_MINOR})"
-    echo "  Upgrade Python: https://www.python.org/downloads/"
-    exit 1
-fi
+PY_VERSION=$("${PYTHON_BIN}" -c 'import sys; print("%d.%d.%d" % sys.version_info[:3])')
+echo "  Python: ${PY_VERSION} (${PYTHON_BIN})"
 
 # --- 2. Create directories ---
 mkdir -p "${INSTALL_DIR}" "${BIN_DIR}"
@@ -69,10 +92,20 @@ if [ ! -f "${INSTALL_DIR}/cli.py" ]; then
 fi
 
 # --- 4. Create launcher ---
-cat > "${LAUNCHER}" << 'SCRIPT'
-#!/usr/bin/env python3
+cat > "${LAUNCHER}" << SCRIPT
+#!${PYTHON_BIN}
 """opencode-db launcher"""
-import sys, os
+import os
+import sys
+
+if sys.version_info < (3, 12):
+    print(
+        "opencode-db requires Python 3.12+; current: %s (%s)"
+        % (".".join(map(str, sys.version_info[:3])), sys.executable),
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
 PKG_DIR = os.path.expanduser("~/.local/share/opencode-db")
 if PKG_DIR not in sys.path:
     sys.path.insert(0, PKG_DIR)

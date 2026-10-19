@@ -18,9 +18,10 @@ opencode-db costs --total  # общие расходы
 
 ### Требования
 
-- Python 3.10+
+- Python 3.12+ — при более старом интерпретаторе `opencode-db` завершается с понятным сообщением вместо `ImportError`
 - OpenCode (должен быть хотя бы раз запущен — создаётся БД)
 - macOS / Linux
+- [`uv`](https://docs.astral.sh/uv/) — опционально, но рекомендуется, если системный `python3` старее 3.12
 
 ### Расположение базы данных
 
@@ -47,20 +48,43 @@ opencode-db --db-path /путь/к/opencode.db stats
 
 Флаг `--db-path` имеет приоритет над переменной окружения.
 
-### Быстрая установка
+### Рекомендуется: uv
+
+Если системный `python3` старее 3.12 (например, на macOS это Python 3.9), используйте `uv` — он установит утилиту в изолированное окружение с подходящим интерпретатором:
 
 ```bash
-git clone https://github.com/VasilevNStas/opencode-db.git ~/.local/share/opencode-db
-ln -s ~/.local/share/opencode-db/bin/opencode-db ~/.local/bin/opencode-db
+uv tool install opencode-db
+# с улучшенным Markdown-рендерингом:
+uv tool install "opencode-db[rich]"
+
+# разовый запуск без установки:
+uvx opencode-db stats
 ```
+
+### Установка одной командой
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/VasilevNStas/opencode-db/master/install.sh | sh
+```
+
+Скрипт скачивает код в `~/.local/share/opencode-db/` и создаёт `~/.local/bin/opencode-db`. Installer ищет Python 3.12+ (включая интерпретаторы, установленные через `uv` или `pyenv`) и записывает найденный путь в shebang launcher'а.
+
+### pip / pipx
+
+```bash
+pipx install opencode-db
+# или
+pip install opencode-db
+```
+
+Внешних зависимостей нет — только стандартная библиотека Python (`rich` опционален).
 
 ### Ручная установка
 
-1. Скопируйте содержимое проекта в `~/.local/share/opencode-db/`:
+1. Скачайте релиз или склонируйте репозиторий:
 
 ```bash
-mkdir -p ~/.local/share/opencode-db
-# скопируйте все файлы проекта в эту директорию
+git clone https://github.com/VasilevNStas/opencode-db.git ~/.local/share/opencode-db
 ```
 
 2. Создайте лаунчер в `~/.local/bin/opencode-db`:
@@ -69,7 +93,17 @@ mkdir -p ~/.local/share/opencode-db
 cat > ~/.local/bin/opencode-db << 'SCRIPT'
 #!/usr/bin/env python3
 """Лаунчер opencode-db."""
-import sys, os
+import os
+import sys
+
+if sys.version_info < (3, 12):
+    print(
+        "opencode-db requires Python 3.12+; current: %s (%s)"
+        % (".".join(map(str, sys.version_info[:3])), sys.executable),
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
 PKG_DIR = os.path.expanduser("~/.local/share/opencode-db")
 if PKG_DIR not in sys.path:
     sys.path.insert(0, PKG_DIR)
@@ -485,14 +519,16 @@ opencode-db help --json                   # справка в JSON
 ~/.local/share/opencode-db/               ← весь код
 │
 ├── __init__.py                           ← исполняемая точка входа
-├── __main__.py                           ← python -m opencode_db
+├── __main__.py                           ← python3 . (запуск каталога)
 ├── cli.py                                ← argparse + диспетчер команд
 │
 ├── config.py                             ← константы и пути
+├── runtime.py                            ← проверка Python 3.12+
 ├── db.py                                 ← запросы к SQLite
 ├── utils.py                              ← форматирование дат, токенов, валидация
 ├── formatters.py                         ← таблицы, JSON, Markdown, snapshot
-├── i18n.py                               ← локализация (EN/RU, 238 ключей)
+├── i18n.py                               ← локализация (EN/RU, 280 ключей)
+├── markdown_to_ansi.py                   ← Markdown → ANSI для `view`
 │
 ├── commands/
 │   └── __init__.py                       ← реестр команд
@@ -509,16 +545,18 @@ opencode-db help --json                   # справка в JSON
 ├── cmd_stats.py                          ← opencode-db stats
 ├── cmd_todos.py                          ← opencode-db todos
 ├── cmd_vacuum.py                         ← opencode-db vacuum
+├── cmd_view.py                           ← opencode-db view
 └── cmd_help.py                           ← opencode-db help
 ```
 
 ### Как это работает
 
-1. Лаунчер `~/.local/bin/opencode-db` (шебанг + 10 строк Python) добавляет `~/.local/share/opencode-db/` в `sys.path` и вызывает `cli.main()`.
-2. `cli.py` собирает `argparse` с subparser'ами от всех команд и диспетчеризирует вызов.
-3. Каждая команда — отдельный модуль `cmd_*.py` с двумя функциями: `register(subparsers)` и `run(args, db)`.
-4. `db.py` открывает соединение с SQLite-базой OpenCode (`~/.local/share/opencode/opencode.db`).
-5. Для опасных операций (`delete`, `prune`) используется подтверждение через `input()`.
+1. Лаунчер `~/.local/bin/opencode-db` (шебанг + Python) добавляет `~/.local/share/opencode-db/` в `sys.path` и вызывает `cli.main()`.
+2. `runtime.require_python()` проверяет интерпретатор до импорта `cli`/`db`: на Python < 3.12 выводится понятное сообщение с командами исправления вместо `ImportError`.
+3. `cli.py` собирает `argparse` с subparser'ами от всех команд и диспетчеризирует вызов.
+4. Каждая команда — отдельный модуль `cmd_*.py` с двумя функциями: `register(subparsers)` и `run(args, db)`.
+5. `db.py` открывает соединение с SQLite-базой OpenCode (`~/.local/share/opencode/opencode.db`).
+6. Для опасных операций (`delete`, `prune`) используется подтверждение через `input()`.
 
 ### Схема базы данных (ключевые таблицы)
 
@@ -610,7 +648,7 @@ opencode-db --lang en help        # справка на английском
 opencode-db --lang en stats       # статистика на английском
 ```
 
-Флаг `--lang` работает с любой командой. Переведены все 238 строк интерфейса. Содержимое данных (названия сессий, проектов и т.д.) остаётся на языке оригинала.
+Флаг `--lang` работает с любой командой. Переведены все 280 строк интерфейса. Содержимое данных (названия сессий, проектов и т.д.) остаётся на языке оригинала.
 
 Язык также можно задать через переменную окружения `OPENCODE_DB_LANG=en`.
 
@@ -618,7 +656,7 @@ opencode-db --lang en stats       # статистика на английско
 
 ## Зависимости
 
-- **Python 3.10+** — вся функциональность на стандартной библиотеке
+- **Python 3.12+** — вся функциональность на стандартной библиотеке
 - **SQLite** — встроенный модуль `sqlite3`
 - **OpenCode** — нужна установленная и хотя бы раз запущенная программа (создаёт БД)
 
@@ -652,9 +690,51 @@ OpenCode ещё не запускался или БД находится в не
 
 Если БД используется другим процессом (например, открыта в OpenCode), VACUUM может не выполниться. Закройте OpenCode и повторите.
 
+### `ImportError: cannot import name 'UTC' from 'datetime'`
+
+`opencode-db` запущен на Python старше 3.12 (например, на системном Python 3.9). Проверьте:
+
+```bash
+python3 --version
+```
+
+Исправление через `uv` (рекомендуется):
+
+```bash
+uv python install 3.13
+uv tool install opencode-db
+opencode-db stats
+```
+
+Или запуск из репозитория с явным интерпретатором:
+
+```bash
+uv run --python 3.13 opencode-db stats
+```
+
+После смены интерпретатора перезапустите `install.sh`, чтобы пересоздать launcher `~/.local/bin/opencode-db`.
+
 ---
 
 ## Разработка
+
+### Локальная разработка
+
+Нужны Python 3.12+ и `pytest`/`ruff`:
+
+```bash
+git clone https://github.com/VasilevNStas/opencode-db.git
+cd opencode-db
+
+uv venv --python 3.13
+source .venv/bin/activate
+uv pip install -e ".[rich]"
+uv pip install pytest ruff
+
+make check          # check-python + ruff + 191 тест
+```
+
+`make check` сразу завершается с понятной ошибкой, если активный интерпретатор старее 3.12.
 
 ### Добавление новой команды
 
@@ -685,10 +765,11 @@ COMMANDS["xxx"] = cmd_xxx
 python3 ~/.local/share/opencode-db list
 ```
 
-Или через модуль:
+Или из корня репозитория (Python 3.12+):
 
 ```bash
-python3 -m opencode_db list
+python3 . list
+uvx --from . opencode-db list
 ```
 
 ---

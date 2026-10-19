@@ -1,15 +1,21 @@
-.PHONY: check test lint build clean install install-rich
+PYTHON ?= python
 
-check: lint test
+.PHONY: check check-python test lint build clean install install-rich
+
+check: check-python lint test
+
+check-python:
+	@$(PYTHON) -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3, 12) else 1)' \
+		|| (echo "ERROR: Python 3.12+ required (found $$($(PYTHON) --version 2>&1))."; echo "  Run: uv venv --python 3.13 && source .venv/bin/activate && make install"; exit 1)
 
 test:
-	python -m pytest tests/ -q
+	$(PYTHON) -m pytest tests/ -q
 
 lint:
-	python -m ruff check .
+	$(PYTHON) -m ruff check .
 
 build: clean
-	python -m build
+	$(PYTHON) -m build
 
 clean:
 	rm -rf dist/ build/ *.egg-info __pycache__ .ruff_cache .pytest_cache
