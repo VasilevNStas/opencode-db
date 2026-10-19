@@ -1,4 +1,4 @@
-from runtime import MIN_PYTHON, check_python_version, format_version_error
+from opencode_db.runtime import MIN_PYTHON, check_python_version, format_version_error
 
 
 class TestRuntime:

@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from db import (
+from opencode_db.db import (
     SessionError,
     get_children_sessions,
     get_latest_session,

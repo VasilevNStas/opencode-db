@@ -15,7 +15,7 @@ import shutil
 import subprocess
 import sys
 
-from db import (
+from ..db import (
     SessionError,
     get_latest_session,
     get_messages,
@@ -25,9 +25,9 @@ from db import (
     get_session_title,
     parse_model,
 )
-from i18n import _
-from markdown_to_ansi import render as md_render
-from utils import build_help_epilog, format_cost, format_tokens, format_ts
+from ..i18n import _
+from ..markdown_to_ansi import render as md_render
+from ..utils import build_help_epilog, format_cost, format_tokens, format_ts
 
 _VIEW_EXAMPLES = [
     ("<session_id>", "help.view.e0"),

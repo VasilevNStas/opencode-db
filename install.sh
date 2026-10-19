@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 # install.sh — opencode-db installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/VasilevNStas/opencode-db/main/install.sh | sh
+# Usage: curl -fsSL https://raw.githubusercontent.com/VasilevNStas/opencode-db/master/install.sh | sh
 #
 # Installs to ~/.local/share/opencode-db/ and creates ~/.local/bin/opencode-db
 
@@ -61,7 +61,7 @@ PY_VERSION=$("${PYTHON_BIN}" -c 'import sys; print("%d.%d.%d" % sys.version_info
 echo "  Python: ${PY_VERSION} (${PYTHON_BIN})"
 
 # --- 2. Create directories ---
-mkdir -p "${INSTALL_DIR}" "${BIN_DIR}"
+mkdir -p "${BIN_DIR}"
 
 # --- 3. Download code ---
 echo "  Downloading opencode-db from ${REPO}..."
@@ -84,10 +84,13 @@ if [ ! -s "${TMP_ARCHIVE}" ]; then
     exit 1
 fi
 
+# Replace the previous installation so files removed by a refactor do not linger.
+rm -rf "${INSTALL_DIR}"
+mkdir -p "${INSTALL_DIR}"
 tar xz -C "${INSTALL_DIR}" --strip-components=1 -f "${TMP_ARCHIVE}"
 
-if [ ! -f "${INSTALL_DIR}/cli.py" ]; then
-    echo "ERROR: Download failed — cli.py not found in ${INSTALL_DIR}"
+if [ ! -f "${INSTALL_DIR}/opencode_db/cli.py" ]; then
+    echo "ERROR: Download failed — opencode_db/cli.py not found in ${INSTALL_DIR}"
     exit 1
 fi
 
@@ -109,8 +112,8 @@ if sys.version_info < (3, 12):
 PKG_DIR = os.path.expanduser("~/.local/share/opencode-db")
 if PKG_DIR not in sys.path:
     sys.path.insert(0, PKG_DIR)
-import cli
-sys.exit(cli.main())
+from opencode_db.cli import main
+sys.exit(main())
 SCRIPT
 chmod +x "${LAUNCHER}"
 

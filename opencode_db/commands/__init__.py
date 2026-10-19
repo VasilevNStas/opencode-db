@@ -5,25 +5,27 @@
   - run(args, db) — выполняет команду
 
 Добавление новой команды:
-  1. Создать cmd_xxx.py
-  2. Добавить import cmd_xxx
+  1. Создать opencode_db/commands/cmd_xxx.py
+  2. Добавить `from . import cmd_xxx`
   3. Добавить "xxx": cmd_xxx в COMMANDS
 """
 
-import cmd_costs
-import cmd_delete
-import cmd_export
-import cmd_help
-import cmd_info
-import cmd_list
-import cmd_projects
-import cmd_prune
-import cmd_search
-import cmd_stats
-import cmd_todos
-import cmd_tree
-import cmd_vacuum
-import cmd_view
+from . import (
+    cmd_costs,
+    cmd_delete,
+    cmd_export,
+    cmd_help,
+    cmd_info,
+    cmd_list,
+    cmd_projects,
+    cmd_prune,
+    cmd_search,
+    cmd_stats,
+    cmd_todos,
+    cmd_tree,
+    cmd_vacuum,
+    cmd_view,
+)
 
 # Словарь {имя_команды: модуль}
 # Модуль должен иметь register(subparsers) и run(args, db)

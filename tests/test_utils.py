@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from utils import (
+from opencode_db.utils import (
     format_cost,
     format_tokens,
     format_ts,

@@ -3,8 +3,8 @@
 import argparse
 from typing import Literal
 
-from i18n import _
-from utils import build_help_epilog
+from ..i18n import _
+from ..utils import build_help_epilog
 
 _HELP_EXAMPLES = [
     ("", "help.help.e0"),

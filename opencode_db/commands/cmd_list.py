@@ -3,11 +3,11 @@
 import argparse
 from typing import Literal
 
-import db as db_module
-from db import get_session_title, parse_model
-from formatters import print_json, print_table_simple
-from i18n import _
-from utils import build_help_epilog, format_ts
+from .. import db as db_module
+from ..db import get_session_title, parse_model
+from ..formatters import print_json, print_table_simple
+from ..i18n import _
+from ..utils import build_help_epilog, format_ts
 
 _LIST_EXAMPLES = [
     ("", "help.list.e0"),

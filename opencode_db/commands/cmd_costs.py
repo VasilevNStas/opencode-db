@@ -5,9 +5,9 @@
 
 import argparse
 
-from db import SessionError, get_session_info, get_session_title, parse_model
-from i18n import _
-from utils import build_help_epilog, format_cost, format_tokens
+from ..db import SessionError, get_session_info, get_session_title, parse_model
+from ..i18n import _
+from ..utils import build_help_epilog, format_cost, format_tokens
 
 _COSTS_EXAMPLES = [
     ("", "help.costs.e0"),
@@ -57,7 +57,7 @@ def _show_session(db, session_id, as_json) -> int:
     cost = info["cost"] or 0
 
     if as_json:
-        from formatters import print_json
+        from ..formatters import print_json
 
         print_json(
             {
@@ -115,7 +115,7 @@ def _show_total(db, project_id, as_json) -> int:
     total_tr = row["tr"] or 0
 
     if as_json:
-        from formatters import print_json
+        from ..formatters import print_json
 
         print_json(
             {
@@ -165,7 +165,7 @@ def _show_list(db, project_id, limit, as_json) -> int:
     ).fetchall()
 
     if as_json:
-        from formatters import print_json
+        from ..formatters import print_json
 
         data = []
         for r in rows:
@@ -183,7 +183,7 @@ def _show_list(db, project_id, limit, as_json) -> int:
         print_json(data)
         return 0
 
-    from formatters import print_table_simple
+    from ..formatters import print_table_simple
 
     table = []
     for r in rows:

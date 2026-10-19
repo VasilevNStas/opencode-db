@@ -2,7 +2,7 @@
 
 import argparse
 
-from db import (
+from ..db import (
     SessionError,
     get_message_count,
     get_part_count,
@@ -11,8 +11,8 @@ from db import (
     get_session_title,
     parse_model,
 )
-from i18n import _
-from utils import build_help_epilog, confirm, format_cost, format_ts, parse_date, parse_time_spec
+from ..i18n import _
+from ..utils import build_help_epilog, confirm, format_cost, format_ts, parse_date, parse_time_spec
 
 _DELETE_EXAMPLES = [
     ("<session_id>", "help.delete.e0"),

@@ -2,9 +2,9 @@
 
 import argparse
 
-from cmd_delete import run as delete_run
-from i18n import _
-from utils import build_help_epilog
+from ..i18n import _
+from ..utils import build_help_epilog
+from .cmd_delete import run as delete_run
 
 _PRUNE_EXAMPLES = [
     ("--older-than 90d", "help.prune.e0"),

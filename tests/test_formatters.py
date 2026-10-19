@@ -1,4 +1,4 @@
-from formatters import format_part_to_md
+from opencode_db.formatters import format_part_to_md
 
 
 class TestFormatPartToMd:

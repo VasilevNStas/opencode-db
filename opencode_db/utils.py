@@ -11,7 +11,7 @@ import re
 from datetime import UTC, datetime, timedelta
 from typing import Literal, LiteralString
 
-from i18n import _
+from .i18n import _
 
 
 def parse_ts(ts_ms) -> datetime:
