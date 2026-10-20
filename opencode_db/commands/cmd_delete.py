@@ -1,7 +1,11 @@
 """Команда delete: удаление сессии или массовая очистка."""
 
 import argparse
+import os
+import sqlite3
+from datetime import datetime
 
+from ..config import resolve_db_path
 from ..db import (
     SessionError,
     get_message_count,
@@ -23,6 +27,8 @@ _DELETE_EXAMPLES = [
     ("--keep-last 30", "help.delete.e4"),
     ("--before 2026-05-20", "help.delete.e5"),
     ("--interactive", "help.delete.e6"),
+    ("--missing-directories", "help.delete.e7"),
+    ("--missing-directories --execute", "help.delete.e8"),
 ]
 
 
@@ -42,6 +48,14 @@ def register(subparsers) -> None:
     p.add_argument("--dry-run", action="store_true", help="Preview without deleting")
     p.add_argument("--force", "-f", action="store_true", help="Skip confirmation")
     p.add_argument("--interactive", action="store_true", help="Choose sessions from a list")
+    p.add_argument(
+        "--missing-directories",
+        action="store_true",
+        help="Sessions whose directory no longer exists (preview by default)",
+    )
+    p.add_argument("--execute", action="store_true", help="Execute missing-directory cleanup")
+    p.add_argument("--backup", action="store_true", help="Create a DB backup before deletion")
+    p.add_argument("--no-backup", action="store_true", help="Skip the DB backup")
 
 
 def _delete_single(db, session_id, dry_run, force) -> int:
@@ -317,6 +331,161 @@ def _parse_choices(text: str, max_n: int) -> list[int]:
     return sorted(result)
 
 
+_SESSION_SCOPED_TABLES = (
+    "part",
+    "message",
+    "todo",
+    "session_message",
+    "session_input",
+    "session_context_epoch",
+    "session_share",
+)
+_EVENT_SCOPED_TABLES = ("event", "event_sequence")
+
+
+def _missing_directory_targets(db, project_id=None):
+    where = "WHERE directory IS NOT NULL AND directory != ''"
+    params = []
+    if project_id:
+        where += " AND project_id = ?"
+        params.append(project_id)
+    rows = db.execute(
+        f"SELECT id, title, directory, time_created, cost FROM session {where}",
+        params,
+    ).fetchall()
+    return [dict(row) for row in rows if not os.path.isdir(row["directory"])]
+
+
+def _delete_in_chunks(db, table, column, ids):
+    deleted = 0
+    for start in range(0, len(ids), 500):
+        chunk = ids[start : start + 500]
+        placeholders = ",".join("?" for _ in chunk)
+        cur = db.execute(f"DELETE FROM {table} WHERE {column} IN ({placeholders})", chunk)
+        deleted += max(cur.rowcount, 0)
+    return deleted
+
+
+def _delete_session_rows(db, ids, tables):
+    db.execute("PRAGMA foreign_keys=ON")
+    deleted = 0
+    for table in _EVENT_SCOPED_TABLES:
+        if table in tables:
+            deleted += _delete_in_chunks(db, table, "aggregate_id", ids)
+    for table in _SESSION_SCOPED_TABLES:
+        if table in tables:
+            deleted += _delete_in_chunks(db, table, "session_id", ids)
+    deleted += _delete_in_chunks(db, "session", "id", ids)
+    return deleted
+
+
+def _backup_database(db, db_path):
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    target = f"{db_path}.bak.{stamp}"
+    suffix = 1
+    while os.path.exists(target):
+        target = f"{db_path}.bak.{stamp}-{suffix}"
+        suffix += 1
+    dest = sqlite3.connect(target)
+    try:
+        db.backup(dest)
+    finally:
+        dest.close()
+    return target
+
+
+def _delete_missing_dirs(db, args) -> int:
+    incompatible = any(
+        _a(args, name)
+        for name in ("older_than", "before", "after", "keep_last", "interactive", "session_id")
+    )
+    if incompatible:
+        print(_("delete.missing_incompatible"))
+        return 1
+
+    backup = _a(args, "backup", False)
+    no_backup = _a(args, "no_backup", False)
+    if backup and no_backup:
+        print(_("delete.missing_both_backup"))
+        return 1
+
+    project_id = _a(args, "project")
+    targets = _missing_directory_targets(db, project_id)
+    if not targets:
+        print(_("delete.missing_none"))
+        return 0
+
+    db_path = resolve_db_path()[0]
+    groups = {}
+    for target in targets:
+        groups.setdefault(target["directory"], []).append(target)
+    total_cost = sum(target["cost"] or 0 for target in targets)
+    times = [target["time_created"] for target in targets if target["time_created"]]
+    first_ts = min(times) if times else None
+    last_ts = max(times) if times else None
+
+    print(f"\n  {'=' * 60}")
+    print(f"  {_('delete.missing_header')}")
+    print(f"  {'=' * 60}")
+    print(_("delete.missing_db", path=db_path))
+    print(_("delete.missing_summary", sessions=len(targets), dirs=len(groups), cost=format_cost(total_cost)))
+    first_label = format_ts(first_ts) if first_ts else "—"
+    last_label = format_ts(last_ts) if last_ts else "—"
+    print(f"  {first_label} — {last_label}")
+    for path in sorted(groups):
+        print(_("delete.missing_dir_line", path=path, n=len(groups[path])))
+
+    if not _a(args, "execute", False) or _a(args, "dry_run", False):
+        print(f"\n{_('delete.missing_preview')}")
+        return 0
+
+    if not backup and not no_backup:
+        print(_("delete.missing_backup_choice"))
+        return 1
+    if no_backup:
+        print(_("delete.missing_no_backup_warning"))
+
+    phrase = f"DELETE {len(targets)} SESSIONS"
+    try:
+        answer = input(_("delete.missing_phrase_prompt", phrase=phrase))
+    except EOFError:
+        print(_("canceled"))
+        return 0
+    if answer.strip() != phrase:
+        print(_("delete.missing_phrase_mismatch"))
+        return 0
+
+    if not confirm(_("delete.missing_final_confirm", n=len(targets))):
+        print(_("canceled"))
+        return 0
+
+    if backup:
+        try:
+            backup_path = _backup_database(db, db_path)
+        except Exception as exc:
+            print(_("delete.missing_backup_failed", error=exc))
+            return 1
+        print(_("delete.missing_backup_done", path=backup_path))
+
+    fresh = _missing_directory_targets(db, project_id)
+    fresh_ids = {target["id"] for target in fresh}
+    target_ids = {target["id"] for target in targets}
+    if fresh_ids != target_ids:
+        print(_("delete.missing_changed"))
+        return 1
+
+    try:
+        deleted = _delete_session_rows(db, sorted(target_ids), set(open_store(db).schema.tables))
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        print(_("delete.missing_error", error=exc))
+        return 1
+
+    print(_("delete.missing_done", n=len(target_ids), rows=deleted))
+    return 0
+
+
 def _a(args, name: str, default=None):
     """getattr с дефолтом — для совместимости Namespace из разных парсеров."""
     return getattr(args, name, default)
@@ -327,6 +496,11 @@ def run(args, db) -> int:
     if store.schema.read_only:
         print(_("schema.unsupported_write"))
         return 1
+    if _a(args, "execute", False) and not _a(args, "missing_directories", False):
+        print(_("delete.missing_execute_requires"))
+        return 1
+    if _a(args, "missing_directories", False):
+        return _delete_missing_dirs(db, args)
     if _a(args, "interactive", False):
         return _delete_interactive(db, args)
 

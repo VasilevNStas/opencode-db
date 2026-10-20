@@ -11,6 +11,8 @@ _PRUNE_EXAMPLES = [
     ("--keep-last 20", "help.prune.e1"),
     ("--dry-run", "help.prune.e2"),
     ("--force", "help.prune.e3"),
+    ("--missing-directories", "help.prune.e4"),
+    ("--missing-directories --execute", "help.prune.e5"),
 ]
 
 
@@ -26,6 +28,14 @@ def register(subparsers) -> None:
     p.add_argument("--project", type=str, help="Limit to project")
     p.add_argument("--dry-run", action="store_true", help="Preview without deleting")
     p.add_argument("--force", "-f", action="store_true", help="Skip confirmation")
+    p.add_argument(
+        "--missing-directories",
+        action="store_true",
+        help="Sessions whose directory no longer exists (preview by default)",
+    )
+    p.add_argument("--execute", action="store_true", help="Execute missing-directory cleanup")
+    p.add_argument("--backup", action="store_true", help="Create a DB backup before deletion")
+    p.add_argument("--no-backup", action="store_true", help="Skip the DB backup")
 
 
 def run(args, db) -> int:

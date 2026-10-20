@@ -311,6 +311,7 @@ opencode-db delete --after 2026-01-01                    # сессии посл
 opencode-db delete --project proj_xxx                    # по проекту
 opencode-db delete --older-than 90d --keep-last 20       # комбинация фильтров
 opencode-db delete --interactive                         # выбор из списка
+opencode-db prune --missing-directories                  # preview сессий из отсутствующих путей
 ```
 
 | Флаг | Описание |
@@ -324,6 +325,10 @@ opencode-db delete --interactive                         # выбор из сп�
 | `--dry-run` | Только показать что будет удалено |
 | `--force`, `-f` | Без подтверждения |
 | `--interactive` | Выбор из списка |
+| `--missing-directories` | Сессии, чья директория больше не существует (по умолчанию preview) |
+| `--execute` | Выполнить очистку отсутствующих директорий |
+| `--backup` | Создать backup БД перед удалением |
+| `--no-backup` | Явно пропустить backup |
 
 ---
 
@@ -584,7 +589,7 @@ opencode-db/
 │   ├── config.py                         ← константы и пути
 │   ├── db.py                             ← запросы к SQLite
 │   ├── formatters.py                     ← таблицы, JSON, Markdown, snapshot
-│   ├── i18n.py                           ← локализация (EN/RU, 324 ключей)
+│   ├── i18n.py                           ← локализация (EN/RU, 348 ключей)
 │   ├── markdown_to_ansi.py               ← Markdown → ANSI для `view`
 │   ├── runtime.py                        ← проверка Python 3.12+
 │   ├── utils.py                          ← форматирование дат, токенов, валидация
@@ -733,7 +738,7 @@ opencode-db --lang en help        # справка на английском
 opencode-db --lang en stats       # статистика на английском
 ```
 
-Флаг `--lang` работает с любой командой. Переведены все 324 строк интерфейса. Содержимое данных (названия сессий, проектов и т.д.) остаётся на языке оригинала.
+Флаг `--lang` работает с любой командой. Переведены все 348 строк интерфейса. Содержимое данных (названия сессий, проектов и т.д.) остаётся на языке оригинала.
 
 Язык также можно задать через переменную окружения `OPENCODE_DB_LANG=en`.
 
@@ -816,7 +821,7 @@ source .venv/bin/activate
 uv pip install -e ".[rich]"
 uv pip install pytest ruff==0.17.1
 
-make check          # check-python + ruff + 216 тестов
+make check          # check-python + ruff + 224 тестов
 ```
 
 `make check` сразу завершается с понятной ошибкой, если активный интерпретатор старее 3.12.

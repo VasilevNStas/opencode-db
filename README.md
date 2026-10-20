@@ -313,6 +313,7 @@ opencode-db delete --after 2026-01-01                    # sessions after a spec
 opencode-db delete --project proj_xxx                    # sessions in a specific project
 opencode-db delete --older-than 90d --keep-last 20       # combined filters
 opencode-db delete --interactive                         # choose from a list interactively
+opencode-db prune --missing-directories                  # preview sessions from missing paths
 ```
 
 | Flag | Description |
@@ -326,6 +327,10 @@ opencode-db delete --interactive                         # choose from a list in
 | `--dry-run` | Only show what would be deleted |
 | `--force`, `-f` | Skip confirmation prompt |
 | `--interactive` | Pick sessions from a list |
+| `--missing-directories` | Sessions whose directory no longer exists (preview by default) |
+| `--execute` | Execute missing-directory cleanup |
+| `--backup` | Create a DB backup before deletion |
+| `--no-backup` | Explicitly skip the DB backup |
 
 ---
 
@@ -364,6 +369,32 @@ opencode-db prune --keep-last 20           # same as opencode-db delete --keep-l
 ```
 
 Time spec formats: `30d` (days), `6m` (months), `1y` (years).
+
+### Missing-directory cleanup
+
+`prune --missing-directories` is a guarded destructive mode for sessions whose
+`session.directory` no longer exists. It is deliberately more restrictive than
+normal prune:
+
+```bash
+opencode-db prune --missing-directories
+opencode-db prune --missing-directories --project global
+opencode-db prune --missing-directories --execute --backup
+```
+
+1. The command is a preview unless `--execute` is present.
+2. `--execute` requires an explicit `--backup` or `--no-backup` choice.
+3. It prints every missing path, session count, cost, and date range.
+4. It requires typing exactly `DELETE <N> SESSIONS`.
+5. It asks a final `y/N` confirmation.
+6. It recomputes candidates and aborts if the list changed.
+7. It deletes only session-scoped rows plus session events; projects and
+   `global` are never deleted.
+8. It refuses on the v2 schema until v2 writes are implemented.
+
+`--force` does not bypass any of these gates. A filesystem check can produce a
+false “missing” result for an unmounted volume or a permission error, so review
+the preview carefully.
 
 ---
 
@@ -577,7 +608,7 @@ opencode-db/
 │   ├── config.py                         ← constants and paths
 │   ├── db.py                             ← SQLite queries
 │   ├── formatters.py                     ← tables, JSON, Markdown, snapshots
-│   ├── i18n.py                           ← localization (EN/RU, 324 keys)
+│   ├── i18n.py                           ← localization (EN/RU, 348 keys)
 │   ├── markdown_to_ansi.py               ← Markdown → ANSI renderer for `view`
 │   ├── runtime.py                        ← Python 3.12+ version guard
 │   ├── utils.py                          ← date/token formatting, validation
@@ -726,7 +757,7 @@ opencode-db --lang en help        # English help text
 opencode-db --lang en stats       # English statistics
 ```
 
-The `--lang` flag applies to any command. All 324 UI strings are translated. Data content (session titles, project names, etc.) remains in its original language.
+The `--lang` flag applies to any command. All 348 UI strings are translated. Data content (session titles, project names, etc.) remains in its original language.
 
 The language can also be set via environment variable `OPENCODE_DB_LANG=en`.
 
@@ -811,7 +842,7 @@ source .venv/bin/activate
 uv pip install -e ".[rich]"
 uv pip install pytest ruff==0.17.1
 
-make check          # check-python + ruff + 216 tests
+make check          # check-python + ruff + 224 tests
 ```
 
 `make check` fails fast with a clear message if the active interpreter is older than 3.12.

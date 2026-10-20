@@ -379,3 +379,28 @@ def test_v2_projects_global_and_paths(v2db, capsys) -> None:
     assert by_id["global"]["path"] is None
     assert by_id["proj_v2"]["path"] == "/tmp/v2"
     assert by_id["proj_v2"]["name"] == "V2 Project"
+
+
+def test_v2_missing_directory_cleanup_is_refused(v2db, capsys) -> None:
+    from opencode_db.commands import cmd_delete
+
+    code = cmd_delete.run(
+        _ns(
+            session_id=None,
+            older_than=None,
+            before=None,
+            after=None,
+            keep_last=None,
+            project=None,
+            dry_run=False,
+            force=False,
+            interactive=False,
+            missing_directories=True,
+            execute=True,
+            backup=False,
+            no_backup=True,
+        ),
+        v2db,
+    )
+    assert code == 1
+    assert "v2" in capsys.readouterr().out.lower()
