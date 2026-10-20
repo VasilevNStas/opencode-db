@@ -784,3 +784,124 @@ class TestDirectoriesCommand:
         )
         assert run(args, db) == 0
         assert "None" not in capsys.readouterr().out
+
+
+class TestMissingDirectoryCleanup:
+    def _args(self, **overrides):
+        values = dict(
+            session_id=None,
+            older_than=None,
+            before=None,
+            after=None,
+            keep_last=None,
+            project=None,
+            dry_run=False,
+            force=False,
+            interactive=False,
+            missing_directories=True,
+            execute=False,
+            backup=False,
+            no_backup=False,
+        )
+        values.update(overrides)
+        return _ns(**values)
+
+    def test_preview_does_not_delete(self, db, capsys) -> None:
+        from opencode_db.commands.cmd_delete import run
+
+        assert run(self._args(), db) == 0
+        assert db.execute("SELECT COUNT(*) FROM session").fetchone()[0] == 4
+        output = capsys.readouterr().out
+        assert "preview" in output.lower()
+        assert "/home/user/proj1" in output
+
+    def test_execute_requires_backup_choice(self, db) -> None:
+        from opencode_db.commands.cmd_delete import run
+
+        assert run(self._args(execute=True, force=True), db) == 1
+        assert db.execute("SELECT COUNT(*) FROM session").fetchone()[0] == 4
+
+    def test_execute_requires_missing_directories(self, db) -> None:
+        from opencode_db.commands.cmd_delete import run
+
+        args = self._args(missing_directories=False, execute=True)
+        assert run(args, db) == 1
+
+    def test_phrase_mismatch_cancels(self, db) -> None:
+        from opencode_db.commands.cmd_delete import run
+
+        with patch("builtins.input", return_value="no"):
+            assert run(self._args(execute=True, no_backup=True), db) == 0
+        assert db.execute("SELECT COUNT(*) FROM session").fetchone()[0] == 4
+
+    def test_final_confirmation_cancels(self, db) -> None:
+        from opencode_db.commands.cmd_delete import run
+
+        with (
+            patch("builtins.input", return_value="DELETE 2 SESSIONS"),
+            patch("opencode_db.commands.cmd_delete.confirm", return_value=False),
+        ):
+            assert run(self._args(execute=True, no_backup=True), db) == 0
+        assert db.execute("SELECT COUNT(*) FROM session").fetchone()[0] == 4
+
+    def test_successful_delete_preserves_existing_directory(self, db_file, tmp_path) -> None:
+        import sqlite3
+
+        from opencode_db.commands.cmd_delete import run
+
+        present = tmp_path / "present"
+        present.mkdir()
+        conn = sqlite3.connect(db_file)
+        conn.row_factory = sqlite3.Row
+        conn.execute("UPDATE session SET directory = ? WHERE id = 'ses_001'", (str(present),))
+        conn.commit()
+
+        with (
+            patch("builtins.input", return_value="DELETE 1 SESSIONS"),
+            patch("opencode_db.commands.cmd_delete.confirm", return_value=True),
+        ):
+            assert run(
+                self._args(execute=True, no_backup=True),
+                conn,
+            ) == 0
+
+        assert conn.execute("SELECT COUNT(*) FROM session").fetchone()[0] == 3
+        assert conn.execute("SELECT id FROM session WHERE id = 'ses_001'").fetchone() is not None
+        assert conn.execute("SELECT id FROM session WHERE id = 'ses_002'").fetchone() is None
+        conn.close()
+
+    def test_backup_and_event_cleanup(self, db_file, tmp_path) -> None:
+        import sqlite3
+
+        from opencode_db.commands.cmd_delete import run
+
+        present = tmp_path / "present"
+        present.mkdir()
+        conn = sqlite3.connect(db_file)
+        conn.row_factory = sqlite3.Row
+        conn.execute("UPDATE session SET directory = ? WHERE id = 'ses_001'", (str(present),))
+        conn.executescript(
+            """
+            CREATE TABLE event_sequence (aggregate_id TEXT, seq INTEGER, owner_id TEXT);
+            CREATE TABLE event (id TEXT, aggregate_id TEXT, seq INTEGER, type TEXT, data TEXT);
+            """
+        )
+        conn.execute(
+            "INSERT INTO event_sequence VALUES ('ses_002', 1, NULL)"
+        )
+        conn.execute(
+            "INSERT INTO event VALUES ('evt_1', 'ses_002', 1, 'test', '{}')"
+        )
+        conn.commit()
+
+        with (
+            patch("builtins.input", return_value="DELETE 1 SESSIONS"),
+            patch("opencode_db.commands.cmd_delete.confirm", return_value=True),
+            patch("opencode_db.commands.cmd_delete.resolve_db_path", return_value=(db_file, False)),
+        ):
+            assert run(self._args(execute=True, backup=True), conn) == 0
+
+        assert list(tmp_path.glob("test.db.bak.*"))
+        assert conn.execute("SELECT COUNT(*) FROM event").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM event_sequence").fetchone()[0] == 0
+        conn.close()

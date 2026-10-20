@@ -313,6 +313,7 @@ opencode-db delete --after 2026-01-01                    # sessions after a spec
 opencode-db delete --project proj_xxx                    # sessions in a specific project
 opencode-db delete --older-than 90d --keep-last 20       # combined filters
 opencode-db delete --interactive                         # choose from a list interactively
+opencode-db prune --missing-directories                  # preview sessions from missing paths
 ```
 
 | Flag | Description |
@@ -326,6 +327,10 @@ opencode-db delete --interactive                         # choose from a list in
 | `--dry-run` | Only show what would be deleted |
 | `--force`, `-f` | Skip confirmation prompt |
 | `--interactive` | Pick sessions from a list |
+| `--missing-directories` | Sessions whose directory no longer exists (preview by default) |
+| `--execute` | Execute missing-directory cleanup |
+| `--backup` | Create a DB backup before deletion |
+| `--no-backup` | Explicitly skip the DB backup |
 
 ---
 
@@ -364,6 +369,144 @@ opencode-db prune --keep-last 20           # same as opencode-db delete --keep-l
 ```
 
 Time spec formats: `30d` (days), `6m` (months), `1y` (years).
+
+### Missing-directory cleanup
+
+OpenCode stores the launch directory of every session in `session.directory`.
+The TUI only shows sessions for the current project, so sessions created in a
+deleted, renamed or unmounted directory can be hard to find. This mode finds
+those sessions and deletes them only after several independent confirmations.
+
+#### 1. Inspect candidates first (read-only)
+
+```bash
+opencode-db directories --missing
+opencode-db directories --missing --json
+opencode-db prune --missing-directories
+opencode-db prune --missing-directories --project global
+```
+
+`directories --missing` is the safest first step: it does not touch the
+database and shows the same paths, counts and costs.
+
+Example preview:
+
+```text
+============================================================
+  DELETE SESSIONS FROM MISSING DIRECTORIES
+============================================================
+  Database: ~/.local/share/opencode/opencode.db
+  Sessions: 51, directories: 10, cost: $3.85
+  2026-05-06 08:19:14 — 2026-09-12 16:45:41
+    /Users/me/old-project — 15 sessions
+    /Users/me/Documents/old-notes — 7 sessions
+...
+This is a preview. Add --execute to delete.
+```
+
+How “missing” is detected:
+
+- the tool reads `session.directory` (or `session_v2.directory`);
+- it calls `os.path.isdir()` on each path at command runtime;
+- `False` means **not found or inaccessible** — it may be deleted, renamed,
+  on an unmounted disk, on an offline network volume, or blocked by permissions;
+- symlinks are followed; results are only true at the moment the command runs;
+- `--no-check` on `directories` skips this check and reports `exists: null`.
+
+Review this list carefully. A temporarily unavailable external disk can look
+exactly like a deleted directory.
+
+#### 2. Execute with the safety gates
+
+```bash
+# recommended: create a consistent SQLite backup first
+opencode-db prune --missing-directories --execute --backup
+
+# only if you already have an external backup
+opencode-db prune --missing-directories --execute --no-backup
+```
+
+`delete --missing-directories ...` works the same way as `prune`.
+
+Before anything is deleted, all of these gates must pass:
+
+1. `--missing-directories` selects only sessions whose path is not found.
+2. `--execute` is required; without it the command always stops after preview.
+3. `--backup` or `--no-backup` must be chosen explicitly.
+4. The command prints every path, session count, cost and date range.
+5. You must type the exact phrase `DELETE <N> SESSIONS`.
+6. You must answer a final `y/N` confirmation.
+7. The candidate list is recomputed; if it changed, deletion is aborted.
+8. All deletes run in one transaction; on error the transaction is rolled back.
+
+`--force` does **not** bypass any of these gates. It is ignored in this mode.
+
+#### What exactly is deleted
+
+For each selected session:
+
+- the `session` row;
+- `message`, `part`, `todo`;
+- `session_message`, `session_input`, `session_context_epoch`, `session_share`;
+- `event` and `event_sequence` rows for that session.
+
+Projects and the synthetic `global` project are **never** deleted. The tool
+does not touch directories on disk — it only removes database rows.
+
+After a successful cleanup you can reclaim disk space:
+
+```bash
+opencode-db vacuum
+```
+
+`VACUUM` can take time and temporarily needs free disk space roughly equal to
+the database size.
+
+#### Backup and recovery
+
+With `--backup`, the tool creates a consistent SQLite copy next to the database:
+
+```text
+opencode.db.bak.20261020-111530
+```
+
+The exact path is printed before deletion. If you delete something by mistake:
+
+1. stop OpenCode;
+2. restore the backup over `opencode.db`;
+3. remove stale `opencode.db-wal` / `opencode.db-shm` files if present;
+4. start OpenCode again.
+
+Without a backup, deleted sessions and their events cannot be recovered.
+
+#### Recommended workflow
+
+```bash
+# 1. Close OpenCode to avoid concurrent writes.
+opencode-db directories --missing
+
+# 2. Preview the exact deletion.
+opencode-db prune --missing-directories
+
+# 3. Optional: only one project.
+opencode-db prune --missing-directories --project global
+
+# 4. Execute with a backup.
+opencode-db prune --missing-directories --execute --backup
+
+# 5. Reclaim disk space.
+opencode-db vacuum
+```
+
+#### Limitations
+
+- This mode is available for the v1 schema; v2 is refused until v2 writes are
+  implemented.
+- It cannot tell a deleted directory from an offline volume or permission error.
+- It does not remove `project` rows or directories from disk.
+- It cannot be combined with `--older-than`, `--before`, `--after`,
+  `--keep-last`, `--interactive` or a session ID.
+- There is no automatic or background cleanup.
 
 ---
 
@@ -577,7 +720,7 @@ opencode-db/
 │   ├── config.py                         ← constants and paths
 │   ├── db.py                             ← SQLite queries
 │   ├── formatters.py                     ← tables, JSON, Markdown, snapshots
-│   ├── i18n.py                           ← localization (EN/RU, 324 keys)
+│   ├── i18n.py                           ← localization (EN/RU, 348 keys)
 │   ├── markdown_to_ansi.py               ← Markdown → ANSI renderer for `view`
 │   ├── runtime.py                        ← Python 3.12+ version guard
 │   ├── utils.py                          ← date/token formatting, validation
@@ -726,7 +869,7 @@ opencode-db --lang en help        # English help text
 opencode-db --lang en stats       # English statistics
 ```
 
-The `--lang` flag applies to any command. All 324 UI strings are translated. Data content (session titles, project names, etc.) remains in its original language.
+The `--lang` flag applies to any command. All 348 UI strings are translated. Data content (session titles, project names, etc.) remains in its original language.
 
 The language can also be set via environment variable `OPENCODE_DB_LANG=en`.
 
@@ -811,7 +954,7 @@ source .venv/bin/activate
 uv pip install -e ".[rich]"
 uv pip install pytest ruff==0.17.1
 
-make check          # check-python + ruff + 216 tests
+make check          # check-python + ruff + 224 tests
 ```
 
 `make check` fails fast with a clear message if the active interpreter is older than 3.12.
