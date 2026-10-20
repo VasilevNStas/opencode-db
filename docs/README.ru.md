@@ -6,6 +6,8 @@
 
 [English version](../README.md)
 
+> **Опубликовано на PyPI:** [opencode-db](https://pypi.org/project/opencode-db/) — готовый пакет можно установить через `uv tool install opencode-db` или `pip install opencode-db`.
+
 ```
 opencode-db help        # все команды, примеры, флаги
 opencode-db list        # последние сессии
