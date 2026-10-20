@@ -21,6 +21,7 @@ require_python()
 from . import commands  # noqa: E402
 from .db import get_db  # noqa: E402
 from .i18n import _, set_lang  # noqa: E402
+from .version import get_version  # noqa: E402
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -40,6 +41,11 @@ def build_parser() -> argparse.ArgumentParser:
         type=str,
         default=None,
         help="Path to opencode.db (default: ~/.local/share/opencode/opencode.db)",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {get_version()}",
     )
 
     subparsers = parser.add_subparsers(dest="command", required=True)

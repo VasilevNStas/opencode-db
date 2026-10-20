@@ -15,6 +15,7 @@ uv tool install opencode-db
 ## Quick start
 
 ```bash
+opencode-db --version    # installed version
 opencode-db list         # recent sessions
 opencode-db directories  # launch directories, including missing ones
 opencode-db view         # interactive session viewer (colored, scrollable)

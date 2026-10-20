@@ -13,6 +13,7 @@
 > **Published on PyPI:** [opencode-db](https://pypi.org/project/opencode-db/) — install the ready-made package with `uv tool install opencode-db` or `pip install opencode-db`.
 
 ```
+opencode-db --version     # installed version
 opencode-db help        # full reference with examples
 opencode-db list        # list recent sessions
 opencode-db stats       # database summary
@@ -810,7 +811,7 @@ source .venv/bin/activate
 uv pip install -e ".[rich]"
 uv pip install pytest ruff==0.17.1
 
-make check          # check-python + ruff + 214 tests
+make check          # check-python + ruff + 216 tests
 ```
 
 `make check` fails fast with a clear message if the active interpreter is older than 3.12.
