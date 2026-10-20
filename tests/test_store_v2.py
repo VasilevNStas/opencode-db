@@ -280,3 +280,102 @@ def test_v2_delete_is_refused(v2db, capsys) -> None:
 def test_unknown_message_type_is_ignored(v2db) -> None:
     store = open_store(v2db)
     assert len(store.get_messages("ses_v2")) == 2
+
+
+def test_v2_directories_and_global(v2db, capsys) -> None:
+    from opencode_db.commands import cmd_directories
+
+    v2db.execute(
+        "INSERT INTO project VALUES (?, ?, ?, ?, ?)",
+        ("global", "/", None, TS, TS),
+    )
+    v2db.execute(
+        "INSERT INTO session_v2 (id, directory, project_id, time_created, time_updated) VALUES (?, ?, ?, ?, ?)",
+        ("ses_global", "/tmp/v2-global", "global", TS, TS),
+    )
+
+    cmd_directories.run(
+        _ns(
+            missing=False,
+            existing=False,
+            project=None,
+            sort="path",
+            limit=50,
+            no_check=True,
+            json=True,
+        ),
+        v2db,
+    )
+    data = json.loads(capsys.readouterr().out)
+    by_path = {item["path"]: item for item in data}
+    assert "/" not in by_path
+    assert by_path["/tmp/v2-global"]["is_global"] is True
+    from opencode_db.i18n import _
+
+    assert by_path["/tmp/v2-global"]["project"] == _("directories.global")
+    assert by_path["/tmp/v2"]["project"] == "V2 Project"
+
+
+def test_v2_directories_missing_filter(v2db, tmp_path, capsys) -> None:
+    from opencode_db.commands import cmd_directories
+
+    present = tmp_path / "present"
+    present.mkdir()
+    missing = tmp_path / "gone"
+    v2db.execute(
+        "INSERT INTO session_v2 (id, directory, project_id, time_created, time_updated) VALUES (?, ?, ?, ?, ?)",
+        ("ses_present", str(present), "proj_v2", TS, TS),
+    )
+    v2db.execute(
+        "INSERT INTO session_v2 (id, directory, project_id, time_created, time_updated) VALUES (?, ?, ?, ?, ?)",
+        ("ses_missing", str(missing), "proj_v2", TS, TS),
+    )
+
+    cmd_directories.run(
+        _ns(
+            missing=True,
+            existing=False,
+            project=None,
+            sort="path",
+            limit=50,
+            no_check=False,
+            json=True,
+        ),
+        v2db,
+    )
+    data = json.loads(capsys.readouterr().out)
+    paths = {item["path"] for item in data}
+    assert str(missing) in paths
+    assert str(present) not in paths
+    assert all(item["exists"] is False for item in data)
+
+    cmd_directories.run(
+        _ns(
+            missing=False,
+            existing=True,
+            project=None,
+            sort="path",
+            limit=50,
+            no_check=False,
+            json=True,
+        ),
+        v2db,
+    )
+    data = json.loads(capsys.readouterr().out)
+    assert str(present) in {item["path"] for item in data}
+
+
+def test_v2_projects_global_and_paths(v2db, capsys) -> None:
+    from opencode_db.commands import cmd_projects
+
+    v2db.execute(
+        "INSERT INTO project VALUES (?, ?, ?, ?, ?)",
+        ("global", "/", None, TS, TS),
+    )
+    cmd_projects.run(_ns(json=True, no_global=False, missing=False), v2db)
+    data = json.loads(capsys.readouterr().out)
+    by_id = {item["id"]: item for item in data}
+    assert by_id["global"]["is_global"] is True
+    assert by_id["global"]["path"] is None
+    assert by_id["proj_v2"]["path"] == "/tmp/v2"
+    assert by_id["proj_v2"]["name"] == "V2 Project"

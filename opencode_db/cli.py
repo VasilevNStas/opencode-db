@@ -43,7 +43,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     subparsers = parser.add_subparsers(dest="command", required=True)
-    for _name, mod in commands.get_all().items():
+    seen: set[str] = set()
+    for mod in commands.get_all().values():
+        if mod.__name__ in seen:
+            continue
+        seen.add(mod.__name__)
         mod.register(subparsers)
     return parser
 

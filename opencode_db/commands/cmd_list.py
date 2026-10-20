@@ -7,7 +7,7 @@ from ..db import get_session_title, parse_model
 from ..formatters import print_json, print_table_simple
 from ..i18n import _
 from ..store import open_store
-from ..utils import build_help_epilog, format_ts
+from ..utils import build_help_epilog, format_ts, shorten_path
 
 _LIST_EXAMPLES = [
     ("", "help.list.e0"),
@@ -15,6 +15,7 @@ _LIST_EXAMPLES = [
     ("--sort cost", "help.list.e2"),
     ("--project proj_xxx", "help.list.e3"),
     ("--json", "help.list.e4"),
+    ("--directory", "help.list.e5"),
 ]
 
 
@@ -38,6 +39,7 @@ def register(subparsers) -> None:
     )
     p.add_argument("--json", action="store_true", help="JSON output")
     p.add_argument("--all", action="store_true", help="Show all (no limit)")
+    p.add_argument("--directory", action="store_true", help="Show session directory")
 
 
 def run(args, db) -> Literal[0]:
@@ -60,6 +62,7 @@ def run(args, db) -> Literal[0]:
                     "id": r["id"],
                     "title": get_session_title(r),
                     "project_id": r["project_id"],
+                    "directory": r["directory"],
                     "model": parse_model(r),
                     "agent": r["agent"],
                     "cost": r["cost"],
@@ -78,29 +81,38 @@ def run(args, db) -> Literal[0]:
         model_name = parse_model(r)
         last_act = format_ts(r["last_time"], "%Y-%m-%d %H:%M") if r["last_time"] else "—"
 
-        table_rows.append(
+        row = [
+            r["id"][:24],
+            get_session_title(r)[:32],
+            project_name[:16],
+        ]
+        if getattr(args, "directory", False):
+            row.append(shorten_path(r["directory"] or "—", 44))
+        row.extend(
             [
-                r["id"][:24],
-                get_session_title(r)[:32],
-                project_name[:16],
                 model_name[:20],
                 last_act,
                 str(r["msg_count"]),
                 f"${r['cost']:.4f}" if r["cost"] else "—",
             ]
         )
+        table_rows.append(row)
 
-    print_table_simple(
+    headers = [
+        _("list.header.id"),
+        _("list.header.title"),
+        _("list.header.project"),
+    ]
+    if getattr(args, "directory", False):
+        headers.append(_("list.header.directory"))
+    headers.extend(
         [
-            _("list.header.id"),
-            _("list.header.title"),
-            _("list.header.project"),
             _("list.header.model"),
             _("list.header.activity"),
             _("list.header.messages"),
             _("list.header.cost"),
-        ],
-        table_rows,
+        ]
     )
+    print_table_simple(headers, table_rows)
 
     return 0

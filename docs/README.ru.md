@@ -169,6 +169,7 @@ opencode-db list --project proj_xxx      # фильтр по проекту
 opencode-db list --agent build           # фильтр по агенту
 opencode-db list --model deepseek        # фильтр по модели
 opencode-db list --json                  # вывод в JSON
+opencode-db list --all --directory       # показать директории
 ```
 
 | Флаг | Описание | По умолчанию |
@@ -181,6 +182,37 @@ opencode-db list --json                  # вывод в JSON
 | `--sort {date,cost,tokens,messages}` | Сортировка | date |
 | `--json` | Вывод в JSON | — |
 | `--all` | Показать все (без limit) | — |
+| `--directory` | Добавить колонку директории | — |
+
+---
+
+### `directories` — директории запусков
+
+Показывает все директории, где запускался OpenCode, включая уже отсутствующие. Объединяет `session.directory`, корни проектов и `project_directory`.
+
+```bash
+opencode-db directories                  # группировка по путям
+opencode-db directories --missing        # только отсутствующие/недоступные
+opencode-db directories --existing       # только существующие
+opencode-db directories --project global # сессии Global по реальным путям
+opencode-db directories --json           # полные пути, счётчики, токены, стоимость
+```
+
+`global` — синтетический проект для директорий вне Git. Команда не показывает
+`/` как реальную директорию: видны настоящие `session.directory`, а проект
+помечен как `Global (без корня)`.
+
+| Флаг | Описание | По умолчанию |
+|---|---|---|
+| `--missing` | Только пути, не найденные на диске | — |
+| `--existing` | Только существующие пути | — |
+| `--project ID` | Фильтр по проекту | — |
+| `--sort {date,sessions,cost,path}` | Сортировка | date |
+| `--limit N` | Макс. записей | 50 |
+| `--no-check` | Не проверять файловую систему (`exists: null`) | — |
+| `--json` | Вывод в JSON | — |
+
+> `os.path.isdir()` — проверка на момент выполнения. Отключённый диск или ошибка прав может выглядеть как отсутствующая директория.
 
 ---
 
@@ -397,13 +429,17 @@ opencode-db tree --depth 3                # глубина 3 уровня
 Показывает все проекты в БД со статистикой: количество сессий, токены, стоимость.
 
 ```bash
-opencode-db projects                      # таблица проектов
+opencode-db projects                      # проекты с путями
 opencode-db projects --json               # в JSON
+opencode-db projects --missing            # проекты с отсутствующим путём
+opencode-db projects --no-global          # скрыть синтетический Global
 ```
 
 | Флаг | Описание |
 |---|---|
 | `--json` | Вывод в JSON |
+| `--missing` | Только проекты с отсутствующим путём |
+| `--no-global` | Скрыть синтетический Global |
 
 ---
 
@@ -547,7 +583,7 @@ opencode-db/
 │   ├── config.py                         ← константы и пути
 │   ├── db.py                             ← запросы к SQLite
 │   ├── formatters.py                     ← таблицы, JSON, Markdown, snapshot
-│   ├── i18n.py                           ← локализация (EN/RU, 296 ключей)
+│   ├── i18n.py                           ← локализация (EN/RU, 324 ключей)
 │   ├── markdown_to_ansi.py               ← Markdown → ANSI для `view`
 │   ├── runtime.py                        ← проверка Python 3.12+
 │   ├── utils.py                          ← форматирование дат, токенов, валидация
@@ -696,7 +732,7 @@ opencode-db --lang en help        # справка на английском
 opencode-db --lang en stats       # статистика на английском
 ```
 
-Флаг `--lang` работает с любой командой. Переведены все 296 строк интерфейса. Содержимое данных (названия сессий, проектов и т.д.) остаётся на языке оригинала.
+Флаг `--lang` работает с любой командой. Переведены все 324 строк интерфейса. Содержимое данных (названия сессий, проектов и т.д.) остаётся на языке оригинала.
 
 Язык также можно задать через переменную окружения `OPENCODE_DB_LANG=en`.
 
@@ -779,7 +815,7 @@ source .venv/bin/activate
 uv pip install -e ".[rich]"
 uv pip install pytest ruff==0.17.1
 
-make check          # check-python + ruff + 205 тестов
+make check          # check-python + ruff + 214 тестов
 ```
 
 `make check` сразу завершается с понятной ошибкой, если активный интерпретатор старее 3.12.

@@ -41,6 +41,7 @@ _COMMANDS = [
             ("--sort cost", "help.list.e2"),
             ("--project proj_xxx", "help.list.e3"),
             ("--json", "help.list.e4"),
+            ("--directory", "help.list.e5"),
         ],
     ),
     (
@@ -117,6 +118,16 @@ _COMMANDS = [
         [
             ("", "help.projects.e0"),
             ("--json", "help.projects.e1"),
+        ],
+    ),
+    (
+        "directories",
+        "help.cmd.directories",
+        [
+            ("", "help.directories.e0"),
+            ("--missing", "help.directories.e1"),
+            ("--json", "help.directories.e2"),
+            ("--no-check", "help.directories.e3"),
         ],
     ),
     (
