@@ -372,29 +372,141 @@ Time spec formats: `30d` (days), `6m` (months), `1y` (years).
 
 ### Missing-directory cleanup
 
-`prune --missing-directories` is a guarded destructive mode for sessions whose
-`session.directory` no longer exists. It is deliberately more restrictive than
-normal prune:
+OpenCode stores the launch directory of every session in `session.directory`.
+The TUI only shows sessions for the current project, so sessions created in a
+deleted, renamed or unmounted directory can be hard to find. This mode finds
+those sessions and deletes them only after several independent confirmations.
+
+#### 1. Inspect candidates first (read-only)
 
 ```bash
+opencode-db directories --missing
+opencode-db directories --missing --json
 opencode-db prune --missing-directories
 opencode-db prune --missing-directories --project global
-opencode-db prune --missing-directories --execute --backup
 ```
 
-1. The command is a preview unless `--execute` is present.
-2. `--execute` requires an explicit `--backup` or `--no-backup` choice.
-3. It prints every missing path, session count, cost, and date range.
-4. It requires typing exactly `DELETE <N> SESSIONS`.
-5. It asks a final `y/N` confirmation.
-6. It recomputes candidates and aborts if the list changed.
-7. It deletes only session-scoped rows plus session events; projects and
-   `global` are never deleted.
-8. It refuses on the v2 schema until v2 writes are implemented.
+`directories --missing` is the safest first step: it does not touch the
+database and shows the same paths, counts and costs.
 
-`--force` does not bypass any of these gates. A filesystem check can produce a
-false “missing” result for an unmounted volume or a permission error, so review
-the preview carefully.
+Example preview:
+
+```text
+============================================================
+  DELETE SESSIONS FROM MISSING DIRECTORIES
+============================================================
+  Database: ~/.local/share/opencode/opencode.db
+  Sessions: 51, directories: 10, cost: $3.85
+  2026-05-06 08:19:14 — 2026-09-12 16:45:41
+    /Users/me/old-project — 15 sessions
+    /Users/me/Documents/old-notes — 7 sessions
+...
+This is a preview. Add --execute to delete.
+```
+
+How “missing” is detected:
+
+- the tool reads `session.directory` (or `session_v2.directory`);
+- it calls `os.path.isdir()` on each path at command runtime;
+- `False` means **not found or inaccessible** — it may be deleted, renamed,
+  on an unmounted disk, on an offline network volume, or blocked by permissions;
+- symlinks are followed; results are only true at the moment the command runs;
+- `--no-check` on `directories` skips this check and reports `exists: null`.
+
+Review this list carefully. A temporarily unavailable external disk can look
+exactly like a deleted directory.
+
+#### 2. Execute with the safety gates
+
+```bash
+# recommended: create a consistent SQLite backup first
+opencode-db prune --missing-directories --execute --backup
+
+# only if you already have an external backup
+opencode-db prune --missing-directories --execute --no-backup
+```
+
+`delete --missing-directories ...` works the same way as `prune`.
+
+Before anything is deleted, all of these gates must pass:
+
+1. `--missing-directories` selects only sessions whose path is not found.
+2. `--execute` is required; without it the command always stops after preview.
+3. `--backup` or `--no-backup` must be chosen explicitly.
+4. The command prints every path, session count, cost and date range.
+5. You must type the exact phrase `DELETE <N> SESSIONS`.
+6. You must answer a final `y/N` confirmation.
+7. The candidate list is recomputed; if it changed, deletion is aborted.
+8. All deletes run in one transaction; on error the transaction is rolled back.
+
+`--force` does **not** bypass any of these gates. It is ignored in this mode.
+
+#### What exactly is deleted
+
+For each selected session:
+
+- the `session` row;
+- `message`, `part`, `todo`;
+- `session_message`, `session_input`, `session_context_epoch`, `session_share`;
+- `event` and `event_sequence` rows for that session.
+
+Projects and the synthetic `global` project are **never** deleted. The tool
+does not touch directories on disk — it only removes database rows.
+
+After a successful cleanup you can reclaim disk space:
+
+```bash
+opencode-db vacuum
+```
+
+`VACUUM` can take time and temporarily needs free disk space roughly equal to
+the database size.
+
+#### Backup and recovery
+
+With `--backup`, the tool creates a consistent SQLite copy next to the database:
+
+```text
+opencode.db.bak.20261020-111530
+```
+
+The exact path is printed before deletion. If you delete something by mistake:
+
+1. stop OpenCode;
+2. restore the backup over `opencode.db`;
+3. remove stale `opencode.db-wal` / `opencode.db-shm` files if present;
+4. start OpenCode again.
+
+Without a backup, deleted sessions and their events cannot be recovered.
+
+#### Recommended workflow
+
+```bash
+# 1. Close OpenCode to avoid concurrent writes.
+opencode-db directories --missing
+
+# 2. Preview the exact deletion.
+opencode-db prune --missing-directories
+
+# 3. Optional: only one project.
+opencode-db prune --missing-directories --project global
+
+# 4. Execute with a backup.
+opencode-db prune --missing-directories --execute --backup
+
+# 5. Reclaim disk space.
+opencode-db vacuum
+```
+
+#### Limitations
+
+- This mode is available for the v1 schema; v2 is refused until v2 writes are
+  implemented.
+- It cannot tell a deleted directory from an offline volume or permission error.
+- It does not remove `project` rows or directories from disk.
+- It cannot be combined with `--older-than`, `--before`, `--after`,
+  `--keep-last`, `--interactive` or a session ID.
+- There is no automatic or background cleanup.
 
 ---
 
