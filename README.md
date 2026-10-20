@@ -10,6 +10,8 @@
 
 [Русская версия](docs/README.ru.md)
 
+> **Published on PyPI:** [opencode-db](https://pypi.org/project/opencode-db/) — install the ready-made package with `uv tool install opencode-db` or `pip install opencode-db`.
+
 ```
 opencode-db help        # full reference with examples
 opencode-db list        # list recent sessions
