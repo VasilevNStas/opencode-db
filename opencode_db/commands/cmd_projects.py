@@ -4,6 +4,7 @@ import argparse
 from typing import Literal
 
 from ..i18n import _
+from ..store import open_store
 from ..utils import build_help_epilog, format_cost, format_tokens, format_ts
 
 _PROJECTS_EXAMPLES = [
@@ -23,18 +24,7 @@ def register(subparsers) -> None:
 
 
 def run(args, db) -> Literal[0]:
-    rows = db.execute("""
-        SELECT p.id, p.name, p.worktree, p.time_created, p.time_updated,
-               COUNT(DISTINCT s.id) as session_count,
-               COALESCE(SUM(s.cost), 0) as total_cost,
-               COALESCE(SUM(s.tokens_input), 0) as total_ti,
-               COALESCE(SUM(s.tokens_output), 0) as total_to,
-               COALESCE(SUM(s.tokens_reasoning), 0) as total_tr
-        FROM project p
-        LEFT JOIN session s ON s.project_id = p.id
-        GROUP BY p.id
-        ORDER BY p.time_updated DESC
-    """).fetchall()
+    rows = open_store(db).get_projects()
 
     if args.json:
         from ..formatters import print_json

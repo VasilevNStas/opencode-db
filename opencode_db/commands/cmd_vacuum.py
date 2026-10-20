@@ -4,8 +4,9 @@ import argparse
 import os
 from typing import Literal
 
-from ..config import OPENCODE_DB
+from ..config import get_db_path
 from ..i18n import _
+from ..store import open_store
 from ..utils import build_help_epilog, confirm
 
 _VACUUM_EXAMPLES = [
@@ -25,8 +26,14 @@ def register(subparsers) -> None:
 
 
 def run(args, db) -> Literal[0] | Literal[1]:
+    store = open_store(db)
+    if store.schema.read_only:
+        print(_("schema.unsupported_write"))
+        return 1
+
+    db_path = get_db_path()
     try:
-        size_before = os.path.getsize(OPENCODE_DB)
+        size_before = os.path.getsize(db_path)
     except OSError:
         size_before = 0
 
@@ -35,7 +42,7 @@ def run(args, db) -> Literal[0] | Literal[1]:
     print(f"\n  {_('vacuum.header')}")
     print(f"  {'─' * 40}")
     print(f"  {_('vacuum.size_before')}:   {size_before_mb:.1f} MB")
-    print(f"  {_('vacuum.path')}:        {OPENCODE_DB}")
+    print(f"  {_('vacuum.path')}:        {db_path}")
 
     if not args.force and not confirm(_("vacuum.confirm")):
         print(_("vacuum.canceled"))
@@ -64,7 +71,7 @@ def run(args, db) -> Literal[0] | Literal[1]:
         print(_("vacuum.error", error=e))
 
     try:
-        size_after = os.path.getsize(OPENCODE_DB)
+        size_after = os.path.getsize(db_path)
         size_after_mb = size_after / (1024 * 1024)
         saved = size_before - size_after
         saved_mb = saved / (1024 * 1024)

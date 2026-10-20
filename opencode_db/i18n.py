@@ -473,6 +473,15 @@ L: dict[str, dict[str, str]] = {
     "help.cmd.vacuum": {"ru": "Оптимизация БД", "en": "Database optimization"},
     "help.cmd.view": {"ru": "Просмотр сессии с прокруткой", "en": "View session with scrolling"},
     "help.cmd.help": {"ru": "Подробная справка", "en": "Detailed help"},
+    "help.cmd.schema": {
+        "ru": "Схема БД и совместимость",
+        "en": "Database schema and compatibility",
+    },
+    "help.schema.e0": {
+        "ru": "Определить семейство схемы и миграции",
+        "en": "Detect schema family and migrations",
+    },
+    "help.schema.e1": {"ru": "То же в JSON", "en": "Same as JSON"},
     # ==================================================================
     # HELP — примеры (epilog для argparse --help)
     # ==================================================================
@@ -612,6 +621,31 @@ L: dict[str, dict[str, str]] = {
     "schema.check_upgrade": {
         "ru": "   Проверь совместимость версий opencode-db и OpenCode.",
         "en": "   Check opencode-db and OpenCode version compatibility.",
+    },
+    "schema.title": {
+        "ru": "Схема БД OpenCode",
+        "en": "OpenCode database schema",
+    },
+    "schema.db_path": {"ru": "База", "en": "Database"},
+    "schema.family": {"ru": "Схема", "en": "Schema"},
+    "schema.tables": {"ru": "Таблиц", "en": "Tables"},
+    "schema.migrations": {"ru": "Миграций", "en": "Migrations"},
+    "schema.max_migration": {"ru": "Макс. миграция", "en": "Max migration"},
+    "schema.capabilities": {"ru": "Возможности", "en": "Capabilities"},
+    "schema.manifest": {"ru": "Манифест", "en": "Manifest"},
+    "schema.read_only": {"ru": "только чтение", "en": "read-only"},
+    "schema.unknown": {
+        "ru": "  ⚠️  Семейство схемы не распознано. Ожидается `session` или `session_v2`.",
+        "en": "  ⚠️  Unknown schema family. Expected `session` or `session_v2`.",
+    },
+    "schema.warning": {"ru": "  ⚠️  {message}", "en": "  ⚠️  {message}"},
+    "schema.unsupported_write": {
+        "ru": "❌ Запись в v2-схему пока не поддерживается. Доступны только read-only команды.",
+        "en": "❌ Writing to the v2 schema is not supported yet. Only read-only commands are available.",
+    },
+    "db.next_fallback": {
+        "ru": "ℹ️  opencode.db не найден, используется preview-база: {path}",
+        "en": "ℹ️  opencode.db not found, using preview database: {path}",
     },
     # ==================================================================
     # ФОРМАТТЕРЫ

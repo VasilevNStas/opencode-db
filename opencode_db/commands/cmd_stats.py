@@ -5,6 +5,7 @@ from typing import Literal
 
 from ..db import parse_model
 from ..i18n import _
+from ..store import open_store
 from ..utils import build_help_epilog, format_cost, format_tokens, format_ts
 
 _STATS_EXAMPLES = [
@@ -24,44 +25,16 @@ def register(subparsers) -> None:
 
 
 def run(args, db) -> Literal[0]:
-    session_count = db.execute("SELECT COUNT(*) FROM session").fetchone()[0]
-    message_count = db.execute("SELECT COUNT(*) FROM message").fetchone()[0]
-    part_count = db.execute("SELECT COUNT(*) FROM part").fetchone()[0]
-    project_count = db.execute("SELECT COUNT(*) FROM project").fetchone()[0]
-    todo_count = db.execute("SELECT COUNT(*) FROM todo").fetchone()[0]
-
-    totals = db.execute("""
-        SELECT
-            COALESCE(SUM(cost), 0) as total_cost,
-            COALESCE(SUM(tokens_input), 0) as total_ti,
-            COALESCE(SUM(tokens_output), 0) as total_to,
-            COALESCE(SUM(tokens_reasoning), 0) as total_tr,
-            COALESCE(SUM(tokens_cache_read), 0) as total_cr,
-            COALESCE(SUM(tokens_cache_write), 0) as total_cw
-        FROM session
-    """).fetchone()
-
-    first_last = db.execute("""
-        SELECT MIN(time_created) as first_ts, MAX(time_created) as last_ts
-        FROM session
-    """).fetchone()
-
-    top_models = db.execute("""
-        SELECT model, COUNT(*) as cnt, SUM(cost) as cost
-        FROM session
-        WHERE model IS NOT NULL
-        GROUP BY model
-        ORDER BY cnt DESC
-        LIMIT 5
-    """).fetchall()
-
-    agents = db.execute("""
-        SELECT agent, COUNT(*) as cnt
-        FROM session
-        WHERE agent IS NOT NULL
-        GROUP BY agent
-        ORDER BY cnt DESC
-    """).fetchall()
+    stats = open_store(db).stats()
+    session_count = stats["sessions"]
+    message_count = stats["messages"]
+    part_count = stats["parts"]
+    project_count = stats["projects"]
+    todo_count = stats["todos"]
+    totals = stats["totals"]
+    first_last = stats["first_last"]
+    top_models = stats["top_models"]
+    agents = stats["agents"]
 
     if args.json:
         from ..formatters import print_json

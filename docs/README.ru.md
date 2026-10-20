@@ -12,6 +12,7 @@
 opencode-db help        # все команды, примеры, флаги
 opencode-db list        # последние сессии
 opencode-db stats       # сводка по всей БД
+opencode-db schema      # определить схему v1/v2
 opencode-db export      # сохранить диалог в .md (интерактивно)
 opencode-db costs --total  # общие расходы
 ```
@@ -421,6 +422,26 @@ opencode-db stats --json                  # в JSON
 
 ---
 
+### `schema` — определение схемы БД
+
+Показывает семейство схемы OpenCode, применённую миграцию и доступные операции.
+
+```bash
+opencode-db schema                        # краткая сводка
+opencode-db schema --json                 # в JSON
+```
+
+Поддерживаемые семейства:
+
+| OpenCode | Схема | Поддержка |
+|---|---|---|
+| 1.19.x | v1 | чтение + запись |
+| 2.x preview | v2 | только чтение |
+
+На v2-базе `delete`, `prune` и `vacuum` отклоняются до реализации записи. Определение идёт по таблицам и журналу миграций, а не по строке версии OpenCode.
+
+---
+
 ### `todos` — просмотр задач из сессий
 
 Показывает todo-записи, созданные в ходе сессий OpenCode.
@@ -526,7 +547,7 @@ opencode-db/
 │   ├── config.py                         ← константы и пути
 │   ├── db.py                             ← запросы к SQLite
 │   ├── formatters.py                     ← таблицы, JSON, Markdown, snapshot
-│   ├── i18n.py                           ← локализация (EN/RU, 280 ключей)
+│   ├── i18n.py                           ← локализация (EN/RU, 296 ключей)
 │   ├── markdown_to_ansi.py               ← Markdown → ANSI для `view`
 │   ├── runtime.py                        ← проверка Python 3.12+
 │   ├── utils.py                          ← форматирование дат, токенов, валидация
@@ -566,10 +587,13 @@ opencode-db/
 2. `runtime.require_python()` проверяет интерпретатор до импорта `cli`/`db`: на Python < 3.12 выводится понятное сообщение с командами исправления вместо `ImportError`.
 3. `cli.py` собирает `argparse` с subparser'ами от всех команд и диспетчеризирует вызов.
 4. Каждая команда — отдельный модуль `opencode_db/commands/cmd_*.py` с двумя функциями: `register(subparsers)` и `run(args, db)`.
-5. `db.py` открывает соединение с SQLite-базой OpenCode (`~/.local/share/opencode/opencode.db`).
-6. Для опасных операций (`delete`, `prune`) используется подтверждение через `input()`.
+5. `db.py` открывает соединение с SQLite-базой OpenCode (`~/.local/share/opencode/opencode.db`, с fallback на `opencode-next.db`) и определяет семейство схемы.
+6. `store/` выбирает `V1Store` или `V2Store`; команды читают через единый интерфейс независимо от схемы.
+7. Для опасных операций (`delete`, `prune`) используется подтверждение через `input()`; на v2 они отклоняются до реализации записи.
 
 ### Схема базы данных (ключевые таблицы)
+
+Стабильный OpenCode 1.19.x (v1):
 
 ```
 session        — сессии: id, title, model (JSON), agent, cost, tokens_*, parent_id, summary_*
@@ -578,6 +602,19 @@ part           — части сообщений: id, message_id, session_id, da
 todo           — задачи: session_id, content, status, priority
 project        — проекты: id, worktree, name
 ```
+
+Preview OpenCode 2.x (v2):
+
+```
+session_v2      — переименованная таблица сессий с теми же полями расхода
+session_message — типизированные JSON-сообщения: user, assistant, synthetic, system, shell, compaction, ...
+project         — проекты: id, worktree, name, time_active, ...
+```
+
+В v2 нет таблиц `message`, `part` и `todo`. Контент assistant вложен в
+`session_message.data.content`, а задачи вычисляются из последнего завершённого
+вызова инструмента `todowrite`. Перед записывающими командами проверяйте
+семейство через `opencode-db schema`.
 
 ---
 
@@ -659,7 +696,7 @@ opencode-db --lang en help        # справка на английском
 opencode-db --lang en stats       # статистика на английском
 ```
 
-Флаг `--lang` работает с любой командой. Переведены все 280 строк интерфейса. Содержимое данных (названия сессий, проектов и т.д.) остаётся на языке оригинала.
+Флаг `--lang` работает с любой командой. Переведены все 296 строк интерфейса. Содержимое данных (названия сессий, проектов и т.д.) остаётся на языке оригинала.
 
 Язык также можно задать через переменную окружения `OPENCODE_DB_LANG=en`.
 
@@ -742,7 +779,7 @@ source .venv/bin/activate
 uv pip install -e ".[rich]"
 uv pip install pytest ruff==0.17.1
 
-make check          # check-python + ruff + 191 тест
+make check          # check-python + ruff + 205 тестов
 ```
 
 `make check` сразу завершается с понятной ошибкой, если активный интерпретатор старее 3.12.

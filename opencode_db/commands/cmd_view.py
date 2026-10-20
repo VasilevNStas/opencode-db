@@ -15,18 +15,10 @@ import shutil
 import subprocess
 import sys
 
-from ..db import (
-    SessionError,
-    get_latest_session,
-    get_messages,
-    get_project_name,
-    get_recent_sessions,
-    get_session_info,
-    get_session_title,
-    parse_model,
-)
+from ..db import SessionError
 from ..i18n import _
 from ..markdown_to_ansi import render as md_render
+from ..store import open_store
 from ..utils import build_help_epilog, format_cost, format_tokens, format_ts
 
 _VIEW_EXAMPLES = [
@@ -56,11 +48,12 @@ def register(subparsers) -> None:
 
 
 def run(args, db) -> int:
+    store = open_store(db)
     if args.session_id:
-        return _view_by_id(db, args.session_id, args.no_pager, args.raw)
+        return _view_by_id(store, args.session_id, args.no_pager, args.raw)
     if args.latest:
-        return _view_latest(db, args.no_pager, args.raw)
-    return _view_interactive(db, args.no_pager, args.raw)
+        return _view_latest(store, args.no_pager, args.raw)
+    return _view_interactive(store, args.no_pager, args.raw)
 
 
 # ======================================================================
@@ -68,29 +61,29 @@ def run(args, db) -> int:
 # ======================================================================
 
 
-def _view_by_id(db, session_id, no_pager, raw) -> int:
+def _view_by_id(store, session_id, no_pager, raw) -> int:
     try:
-        info = get_session_info(db, session_id)
+        info = store.get_session_info(session_id)
     except SessionError as e:
         print(e.message)
         return 1
-    return _do_view(db, info, no_pager, raw)
+    return _do_view(store, info, no_pager, raw)
 
 
-def _view_latest(db, no_pager, raw) -> int:
+def _view_latest(store, no_pager, raw) -> int:
     try:
-        session_id = get_latest_session(db)
-        info = get_session_info(db, session_id)
+        session_id = store.get_latest_session()
+        info = store.get_session_info(session_id)
     except SessionError as e:
         print(e.message)
         return 1
-    title = get_session_title(info)
+    title = store.get_session_title(info)
     print(_("session.latest", title=title))
-    return _do_view(db, info, no_pager, raw)
+    return _do_view(store, info, no_pager, raw)
 
 
-def _view_interactive(db, no_pager, raw) -> int:
-    sessions = get_recent_sessions(db)
+def _view_interactive(store, no_pager, raw) -> int:
+    sessions = store.get_recent_sessions()
     if not sessions:
         print(_("view.no_sessions"))
         return 1
@@ -101,7 +94,7 @@ def _view_interactive(db, no_pager, raw) -> int:
     print(f"  {'─' * 60}")
 
     for i, s in enumerate(sessions, 1):
-        title = get_session_title(s)
+        title = store.get_session_title(s)
         created = format_ts(s["time_created"], "%Y-%m-%d %H:%M")
         cost = format_cost(s["cost"])
         print(f"  {i:2d}. {s['id'][:24]}  {created}  {title[:40]:40s}  {cost}")
@@ -129,14 +122,14 @@ def _view_interactive(db, no_pager, raw) -> int:
         print(f"  {_('view.interactive_error', n=len(sessions))}")
 
     session_id = sessions[idx]["id"]
-    title = get_session_title(sessions[idx])
+    title = store.get_session_title(sessions[idx])
     print(_("view.interactive_viewing", title=title))
     try:
-        info = get_session_info(db, session_id)
+        info = store.get_session_info(session_id)
     except SessionError as e:
         print(e.message)
         return 1
-    return _do_view(db, info, no_pager, raw)
+    return _do_view(store, info, no_pager, raw)
 
 
 # ======================================================================
@@ -159,10 +152,12 @@ def _init_styles(raw=False):
     }
 
 
-def _do_view(db, info, no_pager, raw) -> int:
+def _do_view(store, info, no_pager, raw) -> int:
+    if not hasattr(store, "get_messages"):
+        store = open_store(store)
     sty = _init_styles(raw)
-    messages = get_messages(db, info["id"])
-    text = _format_session(db, info, messages, sty)
+    messages = store.get_messages(info["id"])
+    text = _format_session(store, info, messages, sty)
 
     use_pager = not no_pager and sys.stdout.isatty() and len(text) > 1000
     if use_pager:
@@ -176,10 +171,12 @@ def _do_view(db, info, no_pager, raw) -> int:
     return 0
 
 
-def _format_session(db, info, messages, sty) -> str:
+def _format_session(store, info, messages, sty) -> str:
     """Build the full formatted session view string."""
-    title = get_session_title(info)
-    model = parse_model(info)
+    if not hasattr(store, "get_session_title"):
+        store = open_store(store)
+    title = store.get_session_title(info)
+    model = store.parse_model(info)
     created = format_ts(info["time_created"])
     msg_count = len(messages)
 
@@ -206,7 +203,7 @@ def _format_session(db, info, messages, sty) -> str:
 
     project_name = None
     if info["project_id"]:
-        project_name = get_project_name(db, info["project_id"])
+        project_name = store.get_project_name(info["project_id"])
 
     sep = f"{sty.get('M', '')}{'─' * 60}{sty.get('R', '')}"
     lr = sty.get("R", "")

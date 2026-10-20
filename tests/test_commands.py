@@ -381,7 +381,7 @@ class TestVacuumCommand:
         from opencode_db.commands.cmd_vacuum import run
 
         args = _ns(force=True)
-        with patch("opencode_db.commands.cmd_vacuum.OPENCODE_DB", db_file):
+        with patch("opencode_db.commands.cmd_vacuum.get_db_path", return_value=db_file):
             assert run(args, conn) == 0
 
         conn.close()

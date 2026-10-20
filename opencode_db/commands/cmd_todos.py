@@ -2,8 +2,9 @@
 
 import argparse
 
-from ..db import SessionError, resolve_session_id
+from ..db import SessionError
 from ..i18n import _
+from ..store import open_store
 from ..utils import build_help_epilog, format_ts
 
 _TODOS_EXAMPLES = [
@@ -32,37 +33,20 @@ def register(subparsers) -> None:
 
 
 def run(args, db) -> int:
-    conditions = []
-    params = []
-
+    store = open_store(db)
+    session_id = None
     if args.session_id:
         try:
-            full_id = resolve_session_id(db, args.session_id)
+            session_id = store.resolve_session_id(args.session_id)
         except SessionError as e:
             print(e.message)
             return 1
-        conditions.append("t.session_id = ?")
-        params.append(full_id)
 
-    if args.status:
-        conditions.append("t.status = ?")
-        params.append(args.status)
-
-    where = " AND ".join(conditions) if conditions else "1=1"
-
-    rows = db.execute(
-        f"""
-        SELECT t.session_id, t.content, t.status, t.priority,
-               t.position, t.time_created, t.time_updated,
-               s.title as session_title
-        FROM todo t
-        JOIN session s ON s.id = t.session_id
-        WHERE {where}
-        ORDER BY t.time_created DESC
-        LIMIT ?
-    """,
-        (*params, args.limit),
-    ).fetchall()
+    rows = store.get_todos_filtered(
+        session_id=session_id,
+        status=args.status,
+        limit=args.limit,
+    )
 
     if args.json:
         from ..formatters import print_json

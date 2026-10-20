@@ -12,6 +12,7 @@ from ..db import (
     parse_model,
 )
 from ..i18n import _
+from ..store import open_store
 from ..utils import build_help_epilog, confirm, format_cost, format_ts, parse_date, parse_time_spec
 
 _DELETE_EXAMPLES = [
@@ -322,6 +323,10 @@ def _a(args, name: str, default=None):
 
 
 def run(args, db) -> int:
+    store = open_store(db)
+    if store.schema.read_only:
+        print(_("schema.unsupported_write"))
+        return 1
     if _a(args, "interactive", False):
         return _delete_interactive(db, args)
 

@@ -120,6 +120,14 @@ _COMMANDS = [
         ],
     ),
     (
+        "schema",
+        "help.cmd.schema",
+        [
+            ("", "help.schema.e0"),
+            ("--json", "help.schema.e1"),
+        ],
+    ),
+    (
         "stats",
         "help.cmd.stats",
         [

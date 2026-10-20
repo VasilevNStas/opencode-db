@@ -3,10 +3,10 @@
 import argparse
 from typing import Literal
 
-from .. import db as db_module
 from ..db import get_session_title, parse_model
 from ..formatters import print_json, print_table_simple
 from ..i18n import _
+from ..store import open_store
 from ..utils import build_help_epilog, format_ts
 
 _LIST_EXAMPLES = [
@@ -41,48 +41,16 @@ def register(subparsers) -> None:
 
 
 def run(args, db) -> Literal[0]:
-    conditions = []
-    params = []
-
-    if args.project:
-        conditions.append("s.project_id = ?")
-        params.append(args.project)
-
-    if args.agent:
-        conditions.append("s.agent = ?")
-        params.append(args.agent)
-
-    if args.model:
-        conditions.append("s.model LIKE ?")
-        params.append(f"%{args.model}%")
-
-    where = " AND ".join(conditions) if conditions else "1=1"
-
-    sort_map = {
-        "date": "COALESCE(MAX(m.time_created), s.time_created) DESC",
-        "cost": "s.cost DESC",
-        "tokens": "(s.tokens_input + s.tokens_output) DESC",
-        "messages": "msg_count DESC",
-    }
-    order = sort_map.get(args.sort, "COALESCE(MAX(m.time_created), s.time_created) DESC")
-
+    store = open_store(db)
     limit = 999999 if args.all else args.limit
-
-    rows = db.execute(
-        f"""
-        SELECT s.id, s.title, s.model, s.project_id, s.agent,
-               s.cost, s.tokens_input, s.tokens_output,
-               MAX(m.time_created) as last_time,
-               COUNT(DISTINCT m.id) as msg_count
-        FROM session s
-        LEFT JOIN message m ON m.session_id = s.id
-        WHERE {where}
-        GROUP BY s.id
-        ORDER BY {order}
-        LIMIT ? OFFSET ?
-    """,
-        (*params, limit, args.offset),
-    ).fetchall()
+    rows = store.list_sessions(
+        project_id=args.project,
+        agent=args.agent,
+        model=args.model,
+        sort=args.sort,
+        limit=limit,
+        offset=args.offset,
+    )
 
     if args.json:
         data = []
@@ -106,7 +74,7 @@ def run(args, db) -> Literal[0]:
 
     table_rows = []
     for r in rows:
-        project_name = db_module.get_project_name(db, r["project_id"]) if r["project_id"] else "—"
+        project_name = store.get_project_name(r["project_id"]) if r["project_id"] else "—"
         model_name = parse_model(r)
         last_act = format_ts(r["last_time"], "%Y-%m-%d %H:%M") if r["last_time"] else "—"
 

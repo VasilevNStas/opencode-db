@@ -9,17 +9,10 @@
 import argparse
 import os
 
-from ..db import (
-    SessionError,
-    get_latest_session,
-    get_messages,
-    get_recent_sessions,
-    get_session_info,
-    get_session_title,
-    parse_model,
-)
+from ..db import SessionError
 from ..formatters import collect_snapshot, format_part_to_md, update_log
 from ..i18n import _
+from ..store import open_store
 from ..utils import build_help_epilog, format_cost, format_ts, format_ts_short
 
 _EXPORT_EXAMPLES = [
@@ -62,29 +55,29 @@ def register(subparsers) -> None:
     )
 
 
-def _export_by_id(db, session_id, output_dir, force, note, full) -> int:
+def _export_by_id(store, session_id, output_dir, force, note, full) -> int:
     try:
-        session_info = get_session_info(db, session_id)
+        session_info = store.get_session_info(session_id)
     except SessionError as e:
         print(e.message)
         return 1
-    return _do_export(db, session_info, output_dir, force, note, full)
+    return _do_export(store, session_info, output_dir, force, note, full)
 
 
-def _export_latest(db, output_dir, force, note, full) -> int:
+def _export_latest(store, output_dir, force, note, full) -> int:
     try:
-        session_id = get_latest_session(db)
-        session_info = get_session_info(db, session_id)
+        session_id = store.get_latest_session()
+        session_info = store.get_session_info(session_id)
     except SessionError as e:
         print(e.message)
         return 1
-    title = get_session_title(session_info)
+    title = store.get_session_title(session_info)
     print(_("session.latest", title=title))
-    return _do_export(db, session_info, output_dir, force, note, full)
+    return _do_export(store, session_info, output_dir, force, note, full)
 
 
-def _export_interactive(db, output_dir, force, note, full) -> int:
-    sessions = get_recent_sessions(db)
+def _export_interactive(store, output_dir, force, note, full) -> int:
+    sessions = store.get_recent_sessions()
 
     if not sessions:
         print(_("export.no_sessions"))
@@ -95,7 +88,7 @@ def _export_interactive(db, output_dir, force, note, full) -> int:
     print(f"  {'─' * 60}")
 
     for i, s in enumerate(sessions, 1):
-        title = get_session_title(s)
+        title = store.get_session_title(s)
         created = format_ts(s["time_created"], "%Y-%m-%d %H:%M")
         cost = format_cost(s["cost"])
         print(f"  {i:2d}. {s['id'][:24]}  {created}  {title[:40]:40s}  {cost}")
@@ -123,22 +116,22 @@ def _export_interactive(db, output_dir, force, note, full) -> int:
         print(f"  {_('export.interactive_error', n=len(sessions))}")
 
     session_id = sessions[idx]["id"]
-    title = get_session_title(sessions[idx])
+    title = store.get_session_title(sessions[idx])
     print(_("export.interactive_exporting", title=title))
     try:
-        session_info = get_session_info(db, session_id)
+        session_info = store.get_session_info(session_id)
     except SessionError as e:
         print(e.message)
         return 1
-    return _do_export(db, session_info, output_dir, force, note, full)
+    return _do_export(store, session_info, output_dir, force, note, full)
 
 
-def _do_export(db, session_info, output_dir, force, note, full=False) -> int:
+def _do_export(store, session_info, output_dir, force, note, full=False) -> int:
     """Внутренняя функция: экспорт диалога."""
-    title = get_session_title(session_info)
-    model = parse_model(session_info)
+    title = store.get_session_title(session_info)
+    model = store.parse_model(session_info)
 
-    messages = get_messages(db, session_info["id"])
+    messages = store.get_messages(session_info["id"])
 
     date_str = format_ts_short(session_info["time_created"])
     filename = os.path.join(output_dir, f"opencode-{date_str}.md")
@@ -207,10 +200,11 @@ def run(args, db) -> int:
     output_dir = args.output or os.getcwd()
     full = args.full
 
+    store = open_store(db)
     if args.session_id:
-        return _export_by_id(db, args.session_id, output_dir, args.force, args.note, full)
+        return _export_by_id(store, args.session_id, output_dir, args.force, args.note, full)
 
     if args.latest:
-        return _export_latest(db, output_dir, args.force, args.note, full)
+        return _export_latest(store, output_dir, args.force, args.note, full)
 
-    return _export_interactive(db, output_dir, args.force, args.note, full)
+    return _export_interactive(store, output_dir, args.force, args.note, full)

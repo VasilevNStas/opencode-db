@@ -74,7 +74,7 @@ def main(argv=None) -> Any | Literal[0] | Literal[1]:
     if args.db_path:
         os.environ["OPENCODE_DB"] = args.db_path
 
-    db = get_db()
+    db = get_db(allow_unknown=args.command in {"schema", "help"})
 
     try:
         handler = commands.get_handler(args.command)

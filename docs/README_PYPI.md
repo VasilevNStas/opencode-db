@@ -18,6 +18,7 @@ uv tool install opencode-db
 opencode-db list         # recent sessions
 opencode-db view         # interactive session viewer (colored, scrollable)
 opencode-db stats        # database summary
+opencode-db schema       # detect v1/v2 schema
 opencode-db costs --total  # total token costs
 opencode-db export       # export dialog to .md (interactive)
 opencode-db help         # full reference
@@ -30,6 +31,7 @@ opencode-db help         # full reference
 - **`export`** — экспорт диалога в Markdown (с поддержкой Obsidian)
 - **`delete`** / **`prune`** — удаление и массовая очистка с фильтрами
 - **`costs`** / **`stats`** — аналитика токенов и расходов
+- **`schema`** — определяет v1/v2-схему OpenCode, миграции и доступные операции
 - **`--db-path`** / **`OPENCODE_DB`** — кастомный путь к БД
 
 ## Optional extras
@@ -44,3 +46,5 @@ pip install opencode-db         # zero external dependencies
 - Python 3.12+ — the CLI checks the interpreter at startup and exits with a clear message instead of an `ImportError` on older versions
 - [OpenCode](https://opencode.ai) (must have been run at least once)
 - macOS / Linux
+
+**Schema support:** OpenCode 1.19.x (v1) — read and write; OpenCode 2.x preview (v2) — read-only. Run `opencode-db schema` to check the detected schema. On v2, `delete`, `prune`, and `vacuum` are refused until write support is implemented.
