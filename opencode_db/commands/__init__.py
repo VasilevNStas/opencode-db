@@ -13,6 +13,7 @@
 from . import (
     cmd_costs,
     cmd_delete,
+    cmd_directories,
     cmd_export,
     cmd_help,
     cmd_info,
@@ -35,6 +36,8 @@ COMMANDS = {
     "info": cmd_info,
     "export": cmd_export,
     "delete": cmd_delete,
+    "directories": cmd_directories,
+    "dirs": cmd_directories,
     "costs": cmd_costs,
     "prune": cmd_prune,
     "search": cmd_search,

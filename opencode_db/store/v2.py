@@ -329,7 +329,7 @@ class V2Store(BaseStore):
         order = sort_map.get(sort, sort_map["date"])
         rows = self.conn.execute(
             f"""
-            SELECT s.id, s.title, s.model, s.project_id, s.agent,
+            SELECT s.id, s.title, s.model, s.project_id, s.agent, s.directory,
                    s.cost, s.tokens_input, s.tokens_output,
                    MAX(m.time_created) AS last_time,
                    COUNT(DISTINCT m.id) AS msg_count

@@ -172,6 +172,7 @@ opencode-db list --project proj_xxx      # filter by project
 opencode-db list --agent build           # filter by agent type
 opencode-db list --model deepseek        # filter by model name
 opencode-db list --json                  # JSON output
+opencode-db list --all --directory       # include directory paths
 ```
 
 | Flag | Description | Default |
@@ -184,6 +185,37 @@ opencode-db list --json                  # JSON output
 | `--sort {date,cost,tokens,messages}` | Sort order | date |
 | `--json` | Output as JSON | — |
 | `--all` | Show all (overrides --limit) | — |
+| `--directory` | Add a session directory column | — |
+
+---
+
+### `directories` — launch directories
+
+Lists every directory where OpenCode has run, including paths that no longer exist. Combines session directories with project roots and project-directory mappings.
+
+```bash
+opencode-db directories                  # grouped by path
+opencode-db directories --missing        # only missing/inaccessible paths
+opencode-db directories --existing       # only existing paths
+opencode-db directories --project global # Global sessions by real directory
+opencode-db directories --json           # full paths, counts, tokens, cost
+```
+
+`global` is a synthetic project for non-Git directories. The command never shows
+`/` as a real directory; it shows the actual `session.directory` and marks the
+project as `Global (no project root)`.
+
+| Flag | Description | Default |
+|---|---|---|
+| `--missing` | Only paths not found on disk | — |
+| `--existing` | Only paths that exist | — |
+| `--project ID` | Filter by project | — |
+| `--sort {date,sessions,cost,path}` | Sort order | date |
+| `--limit N` | Max entries | 50 |
+| `--no-check` | Skip filesystem check (`exists: null`) | — |
+| `--json` | Output as JSON | — |
+
+> `os.path.isdir()` is a point-in-time check. An offline volume or permission error can look like a missing directory.
 
 ---
 
@@ -390,13 +422,17 @@ Example output:
 Shows all projects in the database with session counts, tokens, and costs.
 
 ```bash
-opencode-db projects                      # project table
+opencode-db projects                      # project table with paths
 opencode-db projects --json               # JSON output
+opencode-db projects --missing            # projects whose path is gone
+opencode-db projects --no-global          # hide the synthetic Global project
 ```
 
 | Flag | Description |
 |---|---|
 | `--json` | JSON output |
+| `--missing` | Only projects with a missing path |
+| `--no-global` | Hide the synthetic Global project |
 
 ---
 
@@ -540,7 +576,7 @@ opencode-db/
 │   ├── config.py                         ← constants and paths
 │   ├── db.py                             ← SQLite queries
 │   ├── formatters.py                     ← tables, JSON, Markdown, snapshots
-│   ├── i18n.py                           ← localization (EN/RU, 296 keys)
+│   ├── i18n.py                           ← localization (EN/RU, 324 keys)
 │   ├── markdown_to_ansi.py               ← Markdown → ANSI renderer for `view`
 │   ├── runtime.py                        ← Python 3.12+ version guard
 │   ├── utils.py                          ← date/token formatting, validation
@@ -689,7 +725,7 @@ opencode-db --lang en help        # English help text
 opencode-db --lang en stats       # English statistics
 ```
 
-The `--lang` flag applies to any command. All 296 UI strings are translated. Data content (session titles, project names, etc.) remains in its original language.
+The `--lang` flag applies to any command. All 324 UI strings are translated. Data content (session titles, project names, etc.) remains in its original language.
 
 The language can also be set via environment variable `OPENCODE_DB_LANG=en`.
 
@@ -774,7 +810,7 @@ source .venv/bin/activate
 uv pip install -e ".[rich]"
 uv pip install pytest ruff==0.17.1
 
-make check          # check-python + ruff + 205 tests
+make check          # check-python + ruff + 214 tests
 ```
 
 `make check` fails fast with a clear message if the active interpreter is older than 3.12.

@@ -1,4 +1,5 @@
 import argparse
+import json
 from unittest.mock import patch
 
 
@@ -699,3 +700,87 @@ class TestViewCommand:
         sty = _init_styles(raw=True)
         text = _format_session(db, info, [], sty)
         assert "конец сессии" in text or "end of session" in text
+
+
+class TestDirectoriesCommand:
+    def test_directories_json_includes_project_paths(self, db, capsys) -> None:
+        from opencode_db.commands.cmd_directories import run
+
+        args = _ns(
+            missing=False,
+            existing=False,
+            project=None,
+            sort="path",
+            limit=50,
+            no_check=True,
+            json=True,
+        )
+        assert run(args, db) == 0
+        data = json.loads(capsys.readouterr().out)
+        by_path = {item["path"]: item for item in data}
+        assert by_path["/home/user/proj1"]["sessions"] == 2
+        assert by_path["/home/user/proj1"]["project"] == "My Project"
+        assert by_path["/home/user/proj2"]["sessions"] == 0
+        assert by_path["/home/user/proj2"]["project"] == "proj2"
+
+    def test_directories_missing_and_existing_conflict(self, db) -> None:
+        from opencode_db.commands.cmd_directories import run
+
+        args = _ns(missing=True, existing=True, project=None, sort="date", limit=50, no_check=True, json=True)
+        assert run(args, db) == 1
+
+    def test_list_directory_json(self, db, capsys) -> None:
+        from opencode_db.commands.cmd_list import run
+
+        args = _ns(
+            limit=10,
+            offset=0,
+            project=None,
+            agent=None,
+            model=None,
+            sort="date",
+            json=True,
+            all=False,
+            directory=True,
+        )
+        assert run(args, db) == 0
+        data = json.loads(capsys.readouterr().out)
+        assert data[0]["directory"] == "/home/user/proj1"
+
+    def test_projects_show_paths_and_global(self, db, capsys) -> None:
+        from opencode_db.commands.cmd_projects import run
+
+        args = _ns(json=True, no_global=False, missing=False)
+        assert run(args, db) == 0
+        data = json.loads(capsys.readouterr().out)
+        by_id = {item["id"]: item for item in data}
+        assert by_id["proj_002"]["name"] == "proj2"
+        assert by_id["proj_002"]["path"] == "/home/user/proj2"
+        assert by_id["proj_002"]["exists"] is False
+
+
+    def test_dirs_alias_is_registered(self, db) -> None:
+        from opencode_db.cli import build_parser
+        from opencode_db.commands import get_handler
+
+        parser = build_parser()
+        args = parser.parse_args(["dirs", "--json"])
+        assert args.command == "dirs"
+        assert get_handler("dirs") is get_handler("directories")
+
+    def test_list_directory_table_handles_null(self, db, capsys) -> None:
+        from opencode_db.commands.cmd_list import run
+
+        args = _ns(
+            limit=10,
+            offset=0,
+            project=None,
+            agent=None,
+            model=None,
+            sort="date",
+            json=False,
+            all=False,
+            directory=True,
+        )
+        assert run(args, db) == 0
+        assert "None" not in capsys.readouterr().out

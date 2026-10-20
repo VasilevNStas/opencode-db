@@ -37,6 +37,14 @@ def summarize_val(v, max_len=120) -> str:
     return s
 
 
+def shorten_path(path, max_len=48) -> str:
+    """Обрезает длинный путь слева, сохраняя конечные сегменты."""
+    s = str(path)
+    if len(s) <= max_len:
+        return s
+    return "…" + s[-(max_len - 1) :]
+
+
 def parse_date(date_str: str) -> datetime | None:
     """Парсит дату в формате ГГГГ-ММ-ДД."""
     if not date_str or not isinstance(date_str, str):
