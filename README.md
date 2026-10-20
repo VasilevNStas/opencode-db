@@ -85,7 +85,7 @@ pipx install opencode-db
 pip install opencode-db
 ```
 
-[Zero external dependencies](https://treyhunner.com/2015/12/python-imports-and-path-manipulation/) — pure Python standard library only (`rich` is optional).
+**Zero external dependencies** — runs on the Python standard library alone. Only Python 3.12+ is required; `rich` is optional for enhanced Markdown rendering.
 
 ### Manual install
 
