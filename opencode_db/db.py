@@ -12,8 +12,9 @@ import os
 import sqlite3
 import sys
 
-from .config import OPENCODE_DB
+from .config import resolve_db_path
 from .i18n import _
+from .schema import SchemaFamily, detect_schema, schema_issues
 
 
 class SessionError(Exception):
@@ -24,48 +25,25 @@ class SessionError(Exception):
         super().__init__(message)
 
 
-# Ожидаемая схема БД: таблица → список обязательных колонок
-_EXPECTED_SCHEMA = {
-    "session": [
-        "id",
-        "title",
-        "model",
-        "cost",
-        "tokens_input",
-        "tokens_output",
-        "tokens_reasoning",
-        "time_created",
-        "time_updated",
-        "project_id",
-        "parent_id",
-    ],
-    "message": ["id", "session_id", "time_created", "data"],
-    "part": ["id", "message_id", "session_id", "time_created", "data"],
-    "todo": ["session_id", "content", "status", "priority"],
-    "project": ["id", "worktree", "name"],
-}
-
-
 def verify_schema(conn) -> bool:
-    """Проверяет, что БД содержит ожидаемые таблицы и колонки."""
-    tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
-    existing_tables = {r["name"] for r in tables}
+    """Проверяет, что БД содержит таблицы/колонки, нужные командам."""
+    info = detect_schema(conn)
+
+    if info.family is SchemaFamily.UNKNOWN:
+        print(_("schema.unknown"))
+        print(_("schema.check_upgrade"))
+        return False
 
     ok = True
+    for issue in schema_issues(info):
+        if issue.kind == "table":
+            print(_("schema.table_missing", table=issue.table))
+        else:
+            print(_("schema.column_missing", table=issue.table, columns=", ".join(issue.columns)))
+        ok = False
 
-    for table, expected_cols in _EXPECTED_SCHEMA.items():
-        if table not in existing_tables:
-            print(_("schema.table_missing", table=table))
-            ok = False
-            continue
-
-        columns = conn.execute(f"PRAGMA table_info('{table}')").fetchall()
-        existing_cols = {c["name"] for c in columns}
-
-        missing = [c for c in expected_cols if c not in existing_cols]
-        if missing:
-            print(_("schema.column_missing", table=table, columns=", ".join(missing)))
-            ok = False
+    for warning in info.warnings:
+        print(_("schema.warning", message=warning))
 
     if not ok:
         print(_("schema.check_upgrade"))
@@ -73,15 +51,24 @@ def verify_schema(conn) -> bool:
     return ok
 
 
-def get_db() -> sqlite3.Connection:
-    """Открывает соединение с БД opencode."""
-    if not os.path.isfile(OPENCODE_DB):
-        print(_("db.not_found", path=OPENCODE_DB))
+def get_db(allow_unknown: bool = False) -> sqlite3.Connection:
+    """Открывает соединение с БД opencode.
+
+    allow_unknown нужен диагностическим командам (`schema`, `help`), которые
+    должны работать даже при нераспознанной схеме.
+    """
+    db_path, used_fallback = resolve_db_path()
+    if not os.path.isfile(db_path):
+        print(_("db.not_found", path=db_path))
         print(_("db.not_found_hint"))
         sys.exit(1)
-    conn = sqlite3.connect(OPENCODE_DB)
+    if used_fallback:
+        print(_("db.next_fallback", path=db_path))
+    conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
-    verify_schema(conn)
+    if not verify_schema(conn) and not allow_unknown:
+        conn.close()
+        sys.exit(1)
     return conn
 
 

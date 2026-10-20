@@ -2,8 +2,9 @@
 
 import argparse
 
-from ..db import SessionError, get_session_title, resolve_session_id
+from ..db import SessionError
 from ..i18n import _
+from ..store import open_store
 from ..utils import build_help_epilog, format_ts
 
 _TREE_EXAMPLES = [
@@ -25,63 +26,59 @@ def register(subparsers) -> None:
     p.add_argument("--depth", type=int, default=5, help="Max depth")
 
 
-def _build_tree(db, parent_id, depth, max_depth, indent=0, visited=None):
+def _build_tree(store, parent_id, depth, max_depth, project_id=None, indent=0, visited=None):
     if visited is None:
         visited = set()
     if depth > max_depth:
         return []
 
     lines = []
+    rows = store.get_tree_rows(parent_id, project_id)
 
-    if parent_id is None:
-        rows = db.execute("""
-            SELECT id, title, time_created
-            FROM session
-            WHERE parent_id IS NULL
-            ORDER BY time_created
-        """).fetchall()
-    else:
-        rows = db.execute(
-            """
-            SELECT id, title, time_created
-            FROM session
-            WHERE parent_id = ?
-            ORDER BY time_created
-        """,
-            (parent_id,),
-        ).fetchall()
-
-    for r in rows:
-        if r["id"] in visited:
+    for row in rows:
+        if row["id"] in visited:
             continue
-        visited.add(r["id"])
+        visited.add(row["id"])
 
         prefix = "  " * indent + ("└─ " if indent > 0 else "")
-        title = get_session_title(r)
-        created = format_ts(r["time_created"], "%Y-%m-%d")
-        lines.append(f"{prefix}{r['id'][:24]}  {created}  {title}")
+        title = store.get_session_title(row)
+        created = format_ts(row["time_created"], "%Y-%m-%d")
+        lines.append(f"{prefix}{row['id'][:24]}  {created}  {title}")
 
-        lines.extend(_build_tree(db, r["id"], depth + 1, max_depth, indent + 1, visited))
+        lines.extend(
+            _build_tree(
+                store,
+                row["id"],
+                depth + 1,
+                max_depth,
+                project_id,
+                indent + 1,
+                visited,
+            )
+        )
 
     return lines
 
 
 def run(args, db) -> int:
+    store = open_store(db)
+
     if args.session_id:
         try:
-            full_id = resolve_session_id(db, args.session_id)
+            full_id = store.resolve_session_id(args.session_id)
         except SessionError as e:
             print(e.message)
             return 1
-        info = db.execute(
-            "SELECT id, title, time_created FROM session WHERE id = ?", (full_id,)
-        ).fetchone()
+        info = store.get_session_brief(full_id)
+        if not info:
+            print(_("session.not_found", session_id=args.session_id))
+            return 1
 
-        title = get_session_title(info)
+        title = store.get_session_title(info)
         print(f"\n  {_('tree.header', title=title)}")
         print(f"  {'─' * 55}")
 
-        lines = _build_tree(db, full_id, 1, args.depth, 0)
+        lines = _build_tree(store, full_id, 1, args.depth)
         for line in lines:
             print(f"  {line}")
 
@@ -89,20 +86,14 @@ def run(args, db) -> int:
         print(f"\n  {_('tree.header_project', project=args.project)}")
         print(f"  {'─' * 55}")
 
-        lines = _build_tree(db, None, 1, args.depth, 0)
-        project_lines = []
+        lines = _build_tree(store, None, 1, args.depth, project_id=args.project)
         for line in lines:
-            sid = line.split("  ")[0].strip().lstrip("└─ ")
-            row = db.execute("SELECT project_id FROM session WHERE id = ?", (sid,)).fetchone()
-            if row and row["project_id"] == args.project:
-                project_lines.append(line)
-        for line in project_lines:
             print(f"  {line}")
 
     else:
         print(f"\n  {_('tree.header_all')}")
         print(f"  {'─' * 55}")
-        lines = _build_tree(db, None, 1, args.depth, 0)
+        lines = _build_tree(store, None, 1, args.depth)
         for line in lines:
             print(f"  {line}")
 

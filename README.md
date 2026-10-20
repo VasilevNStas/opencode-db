@@ -16,6 +16,7 @@
 opencode-db help        # full reference with examples
 opencode-db list        # list recent sessions
 opencode-db stats       # database summary
+opencode-db schema      # detect v1/v2 schema
 opencode-db export      # save a dialog to .md (interactive)
 opencode-db costs --total  # total token costs
 ```
@@ -414,6 +415,26 @@ opencode-db stats --json                  # JSON output
 
 ---
 
+### `schema` — detect database schema
+
+Shows which OpenCode schema family the database uses, the applied migration, and which operations are supported.
+
+```bash
+opencode-db schema                        # human-readable summary
+opencode-db schema --json                 # JSON output
+```
+
+Supported families:
+
+| OpenCode | Schema | Support |
+|---|---|---|
+| 1.19.x | v1 | read + write |
+| 2.x preview | v2 | read-only |
+
+On a v2 database, `delete`, `prune`, and `vacuum` are refused until write support is implemented. Detection is based on tables and the migration journal, not on the OpenCode version string.
+
+---
+
 ### `todos` — view tasks from sessions
 
 Displays todo items created during OpenCode sessions.
@@ -519,7 +540,7 @@ opencode-db/
 │   ├── config.py                         ← constants and paths
 │   ├── db.py                             ← SQLite queries
 │   ├── formatters.py                     ← tables, JSON, Markdown, snapshots
-│   ├── i18n.py                           ← localization (EN/RU, 280 keys)
+│   ├── i18n.py                           ← localization (EN/RU, 296 keys)
 │   ├── markdown_to_ansi.py               ← Markdown → ANSI renderer for `view`
 │   ├── runtime.py                        ← Python 3.12+ version guard
 │   ├── utils.py                          ← date/token formatting, validation
@@ -559,10 +580,13 @@ opencode-db/
 2. `runtime.require_python()` checks the interpreter before importing `cli`/`db`; on Python < 3.12 it prints a clear message with remediation steps instead of failing with `ImportError`.
 3. `cli.py` builds an `argparse` parser with subparsers from every command module and dispatches the call.
 4. Each command is a separate `opencode_db/commands/cmd_*.py` module exporting two functions: `register(subparsers)` and `run(args, db)`.
-5. `db.py` opens a connection to OpenCode's SQLite database (`~/.local/share/opencode/opencode.db`).
-6. Destructive operations (`delete`, `prune`) always require confirmation (or `--force`).
+5. `db.py` opens a connection to OpenCode's SQLite database (`~/.local/share/opencode/opencode.db`, with `opencode-next.db` fallback) and detects the schema family.
+6. `store/` selects `V1Store` or `V2Store`; commands read through the same interface regardless of the underlying schema.
+7. Destructive operations (`delete`, `prune`) always require confirmation (or `--force`); on v2 they are refused until write support lands.
 
 ### Database schema (key tables)
+
+Stable OpenCode 1.19.x (v1):
 
 ```
 session        — sessions: id, title, model (JSON), agent, cost, tokens_*, parent_id, summary_*
@@ -571,6 +595,19 @@ part           — message parts: id, message_id, session_id, data (JSON: type, 
 todo           — tasks: session_id, content, status, priority
 project        — projects: id, worktree, name
 ```
+
+Preview OpenCode 2.x (v2):
+
+```
+session_v2      — renamed session table with the same usage fields
+session_message — typed JSON messages: user, assistant, synthetic, system, shell, compaction, ...
+project         — projects: id, worktree, name, time_active, ...
+```
+
+v2 has no `message`, `part`, or `todo` tables. Assistant content is nested in
+`session_message.data.content`, and todos are derived from the latest completed
+`todowrite` tool call. Use `opencode-db schema` to inspect the detected family
+before running write commands.
 
 ---
 
@@ -652,7 +689,7 @@ opencode-db --lang en help        # English help text
 opencode-db --lang en stats       # English statistics
 ```
 
-The `--lang` flag applies to any command. All 280 UI strings are translated. Data content (session titles, project names, etc.) remains in its original language.
+The `--lang` flag applies to any command. All 296 UI strings are translated. Data content (session titles, project names, etc.) remains in its original language.
 
 The language can also be set via environment variable `OPENCODE_DB_LANG=en`.
 
@@ -737,7 +774,7 @@ source .venv/bin/activate
 uv pip install -e ".[rich]"
 uv pip install pytest ruff==0.17.1
 
-make check          # check-python + ruff + 191 tests
+make check          # check-python + ruff + 205 tests
 ```
 
 `make check` fails fast with a clear message if the active interpreter is older than 3.12.

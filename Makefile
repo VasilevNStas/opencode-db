@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: check check-python test lint build clean install install-rich
+.PHONY: check check-python test lint schema-check build clean install install-rich
 
 check: check-python lint test
 
@@ -13,6 +13,9 @@ test:
 
 lint:
 	$(PYTHON) -m ruff check .
+
+schema-check:
+	$(PYTHON) scripts/check_schema_manifest.py
 
 build: clean
 	$(PYTHON) -m build

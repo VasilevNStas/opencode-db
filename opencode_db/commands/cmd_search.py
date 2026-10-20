@@ -1,10 +1,10 @@
 """Команда search: поиск по тексту сообщений и частей."""
 
 import argparse
-import json
 
-from ..db import SessionError, resolve_session_id
+from ..db import SessionError
 from ..i18n import _
+from ..store import open_store
 from ..utils import build_help_epilog, format_ts
 
 _SEARCH_EXAMPLES = [
@@ -27,80 +27,27 @@ def register(subparsers) -> None:
     p.add_argument("--json", action="store_true", help="JSON output")
 
 
-def _search_in_part_data(data, query_lower) -> tuple[bool, str]:
-    """Ищет query в part.data (JSON), проверяя текстовые поля."""
-    if not data:
-        return False, ""
-    try:
-        parsed = json.loads(data) if isinstance(data, str) else data
-    except (json.JSONDecodeError, TypeError):
-        return False, ""
-
-    text = parsed.get("text", "")
-    if isinstance(text, str) and query_lower in text.lower():
-        return True, text[:200]
-
-    state = parsed.get("state", {})
-    if isinstance(state, dict):
-        t_input = state.get("input", {})
-        t_output = state.get("output", "")
-        if isinstance(t_input, dict):
-            for v in t_input.values():
-                if isinstance(v, str) and query_lower in v.lower():
-                    return True, f"[tool] {str(v)[:200]}"
-        if isinstance(t_output, str) and query_lower in t_output.lower():
-            return True, f"[output] {t_output[:200]}"
-
-    return False, ""
-
-
 def run(args, db) -> int:
-    query_lower = args.query.lower()
-
-    conditions = []
-    params = []
-
+    store = open_store(db)
+    session_id = None
     if args.session:
         try:
-            full_id = resolve_session_id(db, args.session)
+            session_id = store.resolve_session_id(args.session)
         except SessionError as e:
             print(e.message)
             return 1
-        conditions.append("p.session_id = ?")
-        params.append(full_id)
 
-    where = " AND ".join(conditions) if conditions else "1=1"
-
-    rows = db.execute(
-        f"""
-        SELECT p.id, p.session_id, p.message_id, p.data,
-               m.time_created,
-               json_extract(m.data, '$.role') as role
-        FROM part p
-        JOIN message m ON m.id = p.message_id
-        WHERE {where}
-          AND p.data IS NOT NULL
-        ORDER BY p.time_created DESC
-        LIMIT ?
-    """,
-        (*params, args.limit * 5),
-    ).fetchall()
-
-    results = []
-    for r in rows:
-        found, snippet = _search_in_part_data(r["data"], query_lower)
-        if found:
-            results.append(
-                {
-                    "session_id": r["session_id"][:24],
-                    "message_id": r["message_id"][:12],
-                    "role": r["role"],
-                    "time": format_ts(r["time_created"]) if r["time_created"] else "—",
-                    "snippet": snippet,
-                }
-            )
-        if len(results) >= args.limit:
-            break
+    raw_results = store.search(args.query, session_id=session_id, limit=args.limit)
+    results = [
+        {
+            "session_id": item["session_id"][:24],
+            "message_id": item["message_id"][:12],
+            "role": item["role"],
+            "time": format_ts(item["time_created"]) if item["time_created"] else "—",
+            "snippet": item["snippet"],
+        }
+        for item in raw_results
+    ]
 
     if args.json:
         from ..formatters import print_json

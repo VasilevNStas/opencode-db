@@ -5,8 +5,9 @@
 
 import argparse
 
-from ..db import SessionError, get_session_info, get_session_title, parse_model
+from ..db import SessionError
 from ..i18n import _
+from ..store import open_store
 from ..utils import build_help_epilog, format_cost, format_tokens
 
 _COSTS_EXAMPLES = [
@@ -33,23 +34,24 @@ def register(subparsers) -> None:
 
 
 def run(args, db) -> int:
+    store = open_store(db)
     if args.session_id:
-        return _show_session(db, args.session_id, args.json)
+        return _show_session(store, args.session_id, args.json)
 
     if args.total:
-        return _show_total(db, args.project, args.json)
+        return _show_total(store, args.project, args.json)
 
-    return _show_list(db, args.project, args.limit, args.json)
+    return _show_list(store, args.project, args.limit, args.json)
 
 
-def _show_session(db, session_id, as_json) -> int:
+def _show_session(store, session_id, as_json) -> int:
     try:
-        info = get_session_info(db, session_id)
+        info = store.get_session_info(session_id)
     except SessionError as e:
         print(e.message)
         return 1
-    title = get_session_title(info)
-    model = parse_model(info)
+    title = store.get_session_title(info)
+    model = store.parse_model(info)
 
     ti = info["tokens_input"] or 0
     to = info["tokens_output"] or 0
@@ -90,23 +92,8 @@ def _show_session(db, session_id, as_json) -> int:
     return 0
 
 
-def _show_total(db, project_id, as_json) -> int:
-    where = "1=1"
-    params = []
-
-    if project_id:
-        where = "s.project_id = ?"
-        params.append(project_id)
-
-    row = db.execute(
-        f"""
-        SELECT COUNT(*) as cnt,
-               SUM(tokens_input) as ti, SUM(tokens_output) as tok_out,
-               SUM(tokens_reasoning) as tr, SUM(cost) as c
-        FROM session WHERE {where}
-    """,
-        params,
-    ).fetchone()
+def _show_total(store, project_id, as_json) -> int:
+    row = store.get_cost_total(project_id)
 
     cnt = row["cnt"] or 0
     total_cost = row["c"] or 0
@@ -143,26 +130,8 @@ def _show_total(db, project_id, as_json) -> int:
     return 0
 
 
-def _show_list(db, project_id, limit, as_json) -> int:
-    where = "1=1"
-    params = []
-
-    if project_id:
-        where = "s.project_id = ?"
-        params.append(project_id)
-
-    rows = db.execute(
-        f"""
-        SELECT s.id, s.title, s.model,
-               s.tokens_input, s.tokens_output, s.tokens_reasoning,
-               s.cost
-        FROM session s
-        WHERE {where}
-        ORDER BY (s.tokens_input + s.tokens_output) DESC
-        LIMIT ?
-    """,
-        (*params, limit),
-    ).fetchall()
+def _show_list(store, project_id, limit, as_json) -> int:
+    rows = store.get_cost_list(project_id, limit)
 
     if as_json:
         from ..formatters import print_json
@@ -172,8 +141,8 @@ def _show_list(db, project_id, limit, as_json) -> int:
             data.append(
                 {
                     "id": r["id"],
-                    "title": get_session_title(r),
-                    "model": parse_model(r),
+                    "title": store.get_session_title(r),
+                    "model": store.parse_model(r),
                     "tokens_total": (r["tokens_input"] or 0)
                     + (r["tokens_output"] or 0)
                     + (r["tokens_reasoning"] or 0),
@@ -193,8 +162,8 @@ def _show_list(db, project_id, limit, as_json) -> int:
         table.append(
             [
                 r["id"][:24],
-                get_session_title(r)[:28],
-                parse_model(r)[:20],
+                store.get_session_title(r)[:28],
+                store.parse_model(r)[:20],
                 format_tokens(total_tokens),
                 format_cost(r["cost"] or 0),
             ]

@@ -2,19 +2,9 @@
 
 import argparse
 
-from ..db import (
-    SessionError,
-    get_children_sessions,
-    get_message_count,
-    get_parent_session,
-    get_part_count,
-    get_project_name,
-    get_session_info,
-    get_session_title,
-    get_session_todos,
-    parse_model,
-)
+from ..db import SessionError
 from ..i18n import _
+from ..store import open_store
 from ..utils import build_help_epilog, format_cost, format_tokens, format_ts
 
 _INFO_EXAMPLES = [
@@ -35,21 +25,22 @@ def register(subparsers) -> None:
 
 
 def run(args, db) -> int:
+    store = open_store(db)
     try:
-        info = get_session_info(db, args.session_id)
+        info = store.get_session_info(args.session_id)
     except SessionError as e:
         print(e.message)
         return 1
     session_id = info["id"]
-    msg_count = get_message_count(db, session_id)
-    part_count = get_part_count(db, session_id)
-    children = get_children_sessions(db, session_id)
-    parent = get_parent_session(db, session_id)
-    todos = get_session_todos(db, session_id)
-    project_name = get_project_name(db, info["project_id"]) if info["project_id"] else "—"
+    msg_count = store.get_message_count(session_id)
+    part_count = store.get_part_count(session_id)
+    children = store.get_children_sessions(session_id)
+    parent = store.get_parent_session(session_id)
+    todos = store.get_session_todos(session_id)
+    project_name = store.get_project_name(info["project_id"]) if info["project_id"] else "—"
 
-    model = parse_model(info)
-    title = get_session_title(info)
+    model = store.parse_model(info)
+    title = store.get_session_title(info)
     created = format_ts(info["time_created"])
     updated = format_ts(info["time_updated"])
 
