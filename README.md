@@ -183,6 +183,9 @@ opencode-db list --agent build           # filter by agent type
 opencode-db list --model deepseek        # filter by model name
 opencode-db list --json                  # JSON output
 opencode-db list --all --directory       # include directory paths
+opencode-db list --root                  # root sessions only (orphans included)
+opencode-db list --sub                   # child sessions only
+opencode-db list --parent ses_1c9d       # children of one session
 ```
 
 | Flag | Description | Default |
@@ -196,6 +199,9 @@ opencode-db list --all --directory       # include directory paths
 | `--json` | Output as JSON | — |
 | `--all` | Show all (overrides --limit) | — |
 | `--directory` | Add a session directory column | — |
+| `--root` | Only root sessions; orphaned children count as roots | — |
+| `--sub` | Only sessions with an existing parent | — |
+| `--parent ID` | Only children of this session (prefix allowed) | — |
 
 ---
 
@@ -299,7 +305,7 @@ JSON is the lossless archive format:
 {
   "format": "opencode-db-export",
   "schema_version": 1,
-  "tool_version": "0.12.0",
+  "tool_version": "0.13.0",
   "db_schema": "v1",
   "exported_at": "2026-10-22T18:00:00Z",
   "session": { "...raw session row...": "..." },
@@ -328,6 +334,52 @@ If the project directory contains `.obsidian`, Markdown export automatically cre
 | `--force`, `-f` | Overwrite the file if it exists | — |
 | `--note`, `-n` | Description for log.md | — |
 | `--output`, `-o` | Output directory | `os.getcwd()` |
+
+### Bulk export
+
+Export a set of sessions into a bundle:
+
+```bash
+opencode-db export --last 5                   # 5 newest roots + all descendants
+opencode-db export --last 5 --no-subagents    # roots only
+opencode-db export --since 2026-01-01         # sessions created since the date
+opencode-db export --project proj_xxx         # all sessions in a project
+opencode-db export --all                      # every session
+opencode-db export --last 5 --format json     # lossless JSON bundle
+opencode-db export ses_1c9d --with-subagents  # one root + descendants as a bundle
+```
+
+Rules:
+
+- use only one selection rule per run (`session_id`, `--latest`, `--last`, `--since`, `--project`, or `--all`);
+- `--last N` counts root sessions and includes descendants by default;
+- `--since` uses `session.time_created`; use `--with-subagents` to add descendants;
+- `--project` and `--all` include matching sessions; add `--with-subagents` for extra descendants;
+- a session whose parent is missing is treated as a root;
+- an empty selection is an error, not an empty export.
+
+Bundle layout:
+
+```text
+opencode-export-YYYYMMDD-HHMMSS/
+├── index.md                 # links to every exported session
+├── metadata.json            # selection, counts, db schema, session records
+└── transcript/
+    ├── 01-<title>-<id>.md   # root sessions
+    └── subagents/
+        └── 01-<title>-<id>.md
+```
+
+`metadata.json` records the selection rule and value, root/subagent/total counts, and each session's id, title, parent, role, message count and relative file. The bundle is all-or-nothing: on a write error the partially created directory is removed.
+
+| Flag | Description |
+|---|---|
+| `--last N` | Export the N newest root sessions and descendants |
+| `--since YYYY-MM-DD` | Export sessions created on/after the date |
+| `--project ID` | Export all sessions in a project |
+| `--all` | Export every session |
+| `--with-subagents` | Include child sessions (default for `--last`) |
+| `--no-subagents` | Do not include child sessions |
 
 ### `digest` — compaction summaries
 
@@ -894,7 +946,7 @@ opencode-db/
 │   ├── config.py                         ← constants and paths
 │   ├── db.py                             ← SQLite queries
 │   ├── formatters.py                     ← tables, JSON, Markdown, snapshots
-│   ├── i18n.py                           ← localization (EN/RU, 494 keys)
+│   ├── i18n.py                           ← localization (EN/RU, 515 keys)
 │   ├── backups.py                        ← managed snapshots, manifest, verify
 │   ├── maintenance.py                    ← backup, integrity, WAL, lock checks
 │   ├── markdown_to_ansi.py               ← Markdown → ANSI renderer for `view`
@@ -1049,7 +1101,7 @@ opencode-db --lang en help        # English help text
 opencode-db --lang en stats       # English statistics
 ```
 
-The `--lang` flag applies to any command. All 494 UI strings are translated. Data content (session titles, project names, etc.) remains in its original language.
+The `--lang` flag applies to any command. All 515 UI strings are translated. Data content (session titles, project names, etc.) remains in its original language.
 
 The language can also be set via environment variable `OPENCODE_DB_LANG=en`.
 
@@ -1148,7 +1200,7 @@ source .venv/bin/activate
 uv pip install -e ".[rich]"
 uv pip install pytest ruff==0.17.1
 
-make check          # check-python + ruff + 279 tests
+make check          # check-python + ruff + 291 tests
 ```
 
 `make check` fails fast with a clear message if the active interpreter is older than 3.12.

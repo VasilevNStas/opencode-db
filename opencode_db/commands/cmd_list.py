@@ -3,7 +3,7 @@
 import argparse
 from typing import Literal
 
-from ..db import get_session_title, parse_model
+from ..db import SessionError, get_session_title, parse_model
 from ..formatters import print_json, print_table_simple
 from ..i18n import _
 from ..store import open_store
@@ -16,6 +16,9 @@ _LIST_EXAMPLES = [
     ("--project proj_xxx", "help.list.e3"),
     ("--json", "help.list.e4"),
     ("--directory", "help.list.e5"),
+    ("--root", "help.list.e6"),
+    ("--sub", "help.list.e7"),
+    ("--parent ses_1c9d", "help.list.e8"),
 ]
 
 
@@ -40,11 +43,27 @@ def register(subparsers) -> None:
     p.add_argument("--json", action="store_true", help="JSON output")
     p.add_argument("--all", action="store_true", help="Show all (no limit)")
     p.add_argument("--directory", action="store_true", help="Show session directory")
+    scope = p.add_mutually_exclusive_group()
+    scope.add_argument("--root", action="store_true", help="Only root sessions")
+    scope.add_argument("--sub", action="store_true", help="Only child sessions")
+    p.add_argument("--parent", type=str, help="Only children of this session")
 
 
 def run(args, db) -> Literal[0]:
     store = open_store(db)
     limit = 999999 if args.all else args.limit
+    parent_id = getattr(args, "parent", None)
+    root_only = getattr(args, "root", False)
+    sub_only = getattr(args, "sub", False)
+    if parent_id and (root_only or sub_only):
+        print(_("list.scope_conflict"))
+        return 1
+    if parent_id:
+        try:
+            parent_id = store.resolve_session_id(parent_id)
+        except SessionError as exc:
+            print(exc.message)
+            return 1
     rows = store.list_sessions(
         project_id=args.project,
         agent=args.agent,
@@ -52,6 +71,9 @@ def run(args, db) -> Literal[0]:
         sort=args.sort,
         limit=limit,
         offset=args.offset,
+        parent_id=parent_id,
+        root_only=root_only,
+        sub_only=sub_only,
     )
 
     if args.json:
@@ -62,6 +84,7 @@ def run(args, db) -> Literal[0]:
                     "id": r["id"],
                     "title": get_session_title(r),
                     "project_id": r["project_id"],
+                    "parent_id": r["parent_id"],
                     "directory": r["directory"],
                     "model": parse_model(r),
                     "agent": r["agent"],

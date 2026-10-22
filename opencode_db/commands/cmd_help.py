@@ -62,6 +62,13 @@ _COMMANDS = [
             ("--full", "help.export.e3"),
             ("--force", "help.export.e4"),
             ('--note "text"', "help.export.e5"),
+            ("--format json", "help.export.e6"),
+            ("--last 5", "help.export.e7"),
+            ("--since 2026-01-01", "help.export.e8"),
+            ("--project proj_xxx", "help.export.e9"),
+            ("--all", "help.export.e10"),
+            ("--with-subagents", "help.export.e11"),
+            ("--no-subagents", "help.export.e12"),
         ],
     ),
     (
