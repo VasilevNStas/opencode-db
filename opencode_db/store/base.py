@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 from typing import Any
@@ -9,6 +10,18 @@ from typing import Any
 from ..db import SessionError, get_session_title, parse_model
 from ..i18n import _
 from ..schema import SchemaInfo
+
+
+def parse_json_value(value: Any) -> Any:
+    """Parse a JSON column, preserving the raw value when parsing fails."""
+    if value is None:
+        return None
+    if isinstance(value, (dict, list)):
+        return value
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return value
 
 
 class BaseStore:
@@ -112,6 +125,23 @@ class BaseStore:
             if worktree:
                 return str(worktree).rstrip("/").rsplit("/", 1)[-1] or project_id[:12]
         return project_id[:12]
+
+    def get_session_row(self, session_id: str) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            f"SELECT * FROM {self.session_table} WHERE id = ?", (session_id,)
+        ).fetchone()
+        return dict(row) if row else None
+
+    def iter_raw_messages(self, session_id: str):
+        """Yield raw messages with original JSON payloads."""
+        raise NotImplementedError
+
+    def get_raw_messages(self, session_id: str) -> list[dict[str, Any]]:
+        return list(self.iter_raw_messages(session_id))
+
+    def get_compaction_digests(self, session_id: str, limit: int | None = None):
+        """Return compaction summaries for a session."""
+        raise NotImplementedError
 
     def get_max_updated(self) -> int | None:
         row = self.conn.execute(

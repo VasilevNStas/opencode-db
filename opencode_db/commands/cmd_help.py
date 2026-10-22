@@ -74,6 +74,15 @@ _COMMANDS = [
         ],
     ),
     (
+        "digest",
+        "help.cmd.digest",
+        [
+            ("<session_id>", "help.digest.e0"),
+            ("<session_id> --last 3", "help.digest.e1"),
+            ("<session_id> --json", "help.digest.e2"),
+        ],
+    ),
+    (
         "costs",
         "help.cmd.costs",
         [

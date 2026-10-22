@@ -1,4 +1,4 @@
-"""Команда export: экспорт диалога в Markdown.
+"""Команда export: экспорт диалога в Markdown или lossless JSON.
 
 Режимы выбора сессии:
   - export <session_id>          — по ID (полный или префикс)
@@ -7,13 +7,16 @@
 """
 
 import argparse
+import json
 import os
+from datetime import UTC, datetime
 
 from ..db import SessionError
 from ..formatters import collect_snapshot, format_part_to_md, update_log
 from ..i18n import _
 from ..store import open_store
-from ..utils import build_help_epilog, format_cost, format_ts, format_ts_short
+from ..utils import build_help_epilog, format_cost, format_ts
+from ..version import get_version
 
 _EXPORT_EXAMPLES = [
     ("<session_id>", "help.export.e0"),
@@ -22,6 +25,7 @@ _EXPORT_EXAMPLES = [
     ("--full", "help.export.e3"),
     ("--force", "help.export.e4"),
     ('--note "text"', "help.export.e5"),
+    ("--format json", "help.export.e6"),
 ]
 
 
@@ -45,6 +49,12 @@ def register(subparsers) -> None:
         help="Full output (do not truncate tool outputs)",
     )
     p.add_argument("--force", "-f", action="store_true", help="Overwrite existing file")
+    p.add_argument(
+        "--format",
+        choices=["md", "json"],
+        default="md",
+        help="Export format (md or lossless json)",
+    )
     p.add_argument("--note", "-n", type=str, help="Description for log.md")
     p.add_argument(
         "--output",
@@ -55,16 +65,16 @@ def register(subparsers) -> None:
     )
 
 
-def _export_by_id(store, session_id, output_dir, force, note, full) -> int:
+def _export_by_id(store, session_id, output_dir, force, note, full, fmt) -> int:
     try:
         session_info = store.get_session_info(session_id)
     except SessionError as e:
         print(e.message)
         return 1
-    return _do_export(store, session_info, output_dir, force, note, full)
+    return _do_export(store, session_info, output_dir, force, note, full, fmt)
 
 
-def _export_latest(store, output_dir, force, note, full) -> int:
+def _export_latest(store, output_dir, force, note, full, fmt) -> int:
     try:
         session_id = store.get_latest_session()
         session_info = store.get_session_info(session_id)
@@ -73,10 +83,10 @@ def _export_latest(store, output_dir, force, note, full) -> int:
         return 1
     title = store.get_session_title(session_info)
     print(_("session.latest", title=title))
-    return _do_export(store, session_info, output_dir, force, note, full)
+    return _do_export(store, session_info, output_dir, force, note, full, fmt)
 
 
-def _export_interactive(store, output_dir, force, note, full) -> int:
+def _export_interactive(store, output_dir, force, note, full, fmt) -> int:
     sessions = store.get_recent_sessions()
 
     if not sessions:
@@ -123,18 +133,33 @@ def _export_interactive(store, output_dir, force, note, full) -> int:
     except SessionError as e:
         print(e.message)
         return 1
-    return _do_export(store, session_info, output_dir, force, note, full)
+    return _do_export(store, session_info, output_dir, force, note, full, fmt)
 
 
-def _do_export(store, session_info, output_dir, force, note, full=False) -> int:
+def _export_filename(session_info, output_dir: str, extension: str) -> str:
+    date_str = format_ts(session_info["time_created"], "%Y-%m-%d")
+    short_id = str(session_info["id"])[:12]
+    return os.path.join(output_dir, f"opencode-{date_str}-{short_id}.{extension}")
+
+
+def _do_export(
+    store,
+    session_info,
+    output_dir,
+    force,
+    note,
+    full=False,
+    fmt="md",
+) -> int:
     """Внутренняя функция: экспорт диалога."""
+    if fmt == "json":
+        return _do_export_json(store, session_info, output_dir, force)
+
     title = store.get_session_title(session_info)
     model = store.parse_model(session_info)
 
     messages = store.get_messages(session_info["id"])
-
-    date_str = format_ts_short(session_info["time_created"])
-    filename = os.path.join(output_dir, f"opencode-{date_str}.md")
+    filename = _export_filename(session_info, output_dir, "md")
 
     if os.path.isfile(filename) and not force:
         print(_("export.exists", path=filename))
@@ -168,6 +193,12 @@ def _do_export(store, session_info, output_dir, force, note, full=False) -> int:
 
         md_body.append("")
 
+        if msg.get("mode") == "compaction" and not any(
+            part.get("type") == "compaction" for part in msg["parts"]
+        ):
+            md_body.append(f"> **🗜️ {_('md.compaction')}**")
+            md_body.append("")
+
         for part in msg["parts"]:
             formatted = format_part_to_md(part, full=full)
             if formatted:
@@ -196,15 +227,68 @@ def _do_export(store, session_info, output_dir, force, note, full=False) -> int:
     return 0
 
 
+def _do_export_json(store, session_info, output_dir, force) -> int:
+    filename = _export_filename(session_info, output_dir, "json")
+    if os.path.isfile(filename) and not force:
+        print(_("export.exists", path=filename))
+        print(_("export.exists_hint"))
+        return 1
+
+    session_row = store.get_session_row(session_info["id"]) or {}
+    header = {
+        "format": "opencode-db-export",
+        "schema_version": 1,
+        "tool_version": get_version(),
+        "db_schema": store.schema.family.value,
+        "exported_at": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        "session": session_row,
+    }
+
+    count = 0
+    try:
+        with open(filename, "w", encoding="utf-8") as handle:
+            handle.write("{\n")
+            for key, value in header.items():
+                handle.write(f'  "{key}": {json.dumps(value, ensure_ascii=False, default=str)},\n')
+            handle.write('  "messages": [\n')
+            first = True
+            for message in store.iter_raw_messages(session_info["id"]):
+                data = message.get("data")
+                if isinstance(data, dict):
+                    message.setdefault("type", data.get("type") or data.get("role") or "unknown")
+                    message.setdefault(
+                        "role",
+                        data.get("role")
+                        or ("user" if data.get("type") == "user" else "assistant"),
+                    )
+                if first:
+                    first = False
+                else:
+                    handle.write(",\n")
+                handle.write("    ")
+                json.dump(message, handle, ensure_ascii=False, default=str)
+                count += 1
+            handle.write("\n  ]\n}\n")
+    except Exception:
+        if os.path.isfile(filename):
+            os.remove(filename)
+        raise
+
+    print(_("export.saved", path=filename))
+    print(_("export.messages", n=count))
+    return 0
+
+
 def run(args, db) -> int:
     output_dir = args.output or os.getcwd()
     full = args.full
+    fmt = getattr(args, "format", "md")
 
     store = open_store(db)
     if args.session_id:
-        return _export_by_id(store, args.session_id, output_dir, args.force, args.note, full)
+        return _export_by_id(store, args.session_id, output_dir, args.force, args.note, full, fmt)
 
     if args.latest:
-        return _export_latest(store, output_dir, args.force, args.note, full)
+        return _export_latest(store, output_dir, args.force, args.note, full, fmt)
 
-    return _export_interactive(store, output_dir, args.force, args.note, full)
+    return _export_interactive(store, output_dir, args.force, args.note, full, fmt)

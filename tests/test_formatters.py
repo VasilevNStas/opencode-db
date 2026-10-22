@@ -172,9 +172,10 @@ class TestFormatPartToMd:
         )
         assert "line" in result
 
-    def test_unknown_type_returns_empty(self):
+    def test_unknown_type_uses_generic_block(self):
         result = format_part_to_md({"type": "unknown_type"})
-        assert result == ""
+        assert "Unknown part: unknown_type" in result
+        assert "```json" in result
 
     def test_empty_part_returns_empty(self):
         result = format_part_to_md({"type": "text", "text": ""})

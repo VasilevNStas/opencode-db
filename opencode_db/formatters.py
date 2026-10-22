@@ -104,6 +104,50 @@ def format_part_to_md(part: dict, full: bool = False) -> str:
     if t == "sound":
         return _("*🔊 {msg}*", msg=_("md.sound"))
 
+    if t == "compaction":
+        text = str(part.get("text", "")).strip()
+        header = f"> **🗜️ {_('md.compaction')}**"
+        if part.get("auto") is not None:
+            header += f" (auto={part.get('auto')})"
+        if part.get("overflow"):
+            header += " (overflow)"
+        if text:
+            quoted = "\n".join(f"> {line}" if line else ">" for line in text.splitlines())
+            return f"{header}\n>\n{quoted}"
+        return header
+
+    if t == "patch":
+        lines = [f"**🧩 {_('md.patch')}**"]
+        patch_hash = part.get("hash")
+        if patch_hash:
+            lines.append(_("md.patch_hash", hash=patch_hash))
+        files = part.get("files")
+        if isinstance(files, list):
+            lines.extend(f"- `{summarize_val(item, 200 if full else 120)}`" for item in files)
+        return "\n".join(lines)
+
+    if t == "file":
+        filename = part.get("filename") or "?"
+        lines = [f"**📎 {_('md.file')}:** `{summarize_val(filename, 200 if full else 120)}`"]
+        if part.get("mime"):
+            lines.append(_("md.file_mime", mime=part["mime"]))
+        if part.get("url"):
+            lines.append(_("md.file_url", url=part["url"]))
+        return "\n".join(lines)
+
+    if t == "step-start":
+        return "<!-- step-start -->" if full else ""
+
+    if t == "step-finish":
+        if not full:
+            return ""
+        meta = {
+            key: part[key]
+            for key in ("reason", "cost", "tokens")
+            if part.get(key) is not None
+        }
+        return f"<!-- step-finish {json.dumps(meta, ensure_ascii=False, default=str)} -->"
+
     if t == "tool":
         tool_name = part.get("tool", "?")
         t_input = part.get("input", {})
@@ -182,7 +226,10 @@ def format_part_to_md(part: dict, full: bool = False) -> str:
 
         return "\n".join(lines)
 
-    return ""
+    payload = json.dumps(part.get("data", part), ensure_ascii=False, indent=2, default=str)
+    if not full and len(payload) > 1500:
+        payload = payload[:1500] + "\n..."
+    return f"**⚠️ {_('md.unknown_part', type=t or '?')}**\n\n```json\n{payload}\n```"
 
 
 def collect_snapshot(project_dir: str) -> dict[str, Any]:
