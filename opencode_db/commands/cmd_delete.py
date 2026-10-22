@@ -2,8 +2,6 @@
 
 import argparse
 import os
-import sqlite3
-from datetime import datetime
 
 from ..config import resolve_db_path
 from ..db import (
@@ -16,6 +14,7 @@ from ..db import (
     parse_model,
 )
 from ..i18n import _
+from ..maintenance import backup_database
 from ..store import open_store
 from ..utils import build_help_epilog, confirm, format_cost, format_ts, parse_date, parse_time_spec
 
@@ -379,21 +378,6 @@ def _delete_session_rows(db, ids, tables):
     return deleted
 
 
-def _backup_database(db, db_path):
-    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    target = f"{db_path}.bak.{stamp}"
-    suffix = 1
-    while os.path.exists(target):
-        target = f"{db_path}.bak.{stamp}-{suffix}"
-        suffix += 1
-    dest = sqlite3.connect(target)
-    try:
-        db.backup(dest)
-    finally:
-        dest.close()
-    return target
-
-
 def _delete_missing_dirs(db, args) -> int:
     incompatible = any(
         _a(args, name)
@@ -428,7 +412,14 @@ def _delete_missing_dirs(db, args) -> int:
     print(f"  {_('delete.missing_header')}")
     print(f"  {'=' * 60}")
     print(_("delete.missing_db", path=db_path))
-    print(_("delete.missing_summary", sessions=len(targets), dirs=len(groups), cost=format_cost(total_cost)))
+    print(
+        _(
+            "delete.missing_summary",
+            sessions=len(targets),
+            dirs=len(groups),
+            cost=format_cost(total_cost),
+        )
+    )
     first_label = format_ts(first_ts) if first_ts else "—"
     last_label = format_ts(last_ts) if last_ts else "—"
     print(f"  {first_label} — {last_label}")
@@ -461,7 +452,7 @@ def _delete_missing_dirs(db, args) -> int:
 
     if backup:
         try:
-            backup_path = _backup_database(db, db_path)
+            backup_path = backup_database(db, db_path)
         except Exception as exc:
             print(_("delete.missing_backup_failed", error=exc))
             return 1

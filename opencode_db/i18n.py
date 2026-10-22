@@ -215,26 +215,77 @@ L: dict[str, dict[str, str]] = {
     "delete.mass_confirm": {"ru": "Удалить {n} сессий?", "en": "Delete {n} sessions?"},
     "delete.done_mass": {"ru": "  ✅ Удалено {n} сессий.", "en": "  ✅ Deleted {n} sessions."},
     "delete.interactive_header": {"ru": "Последние сессии:", "en": "Recent sessions:"},
-    "delete.missing_header": {"ru": "ОЧИСТКА СЕССИЙ ИЗ ОТСУТСТВУЮЩИХ ДИРЕКТОРИЙ", "en": "DELETE SESSIONS FROM MISSING DIRECTORIES"},
-    "delete.missing_none": {"ru": "  ✅ Сессий из отсутствующих директорий не найдено.", "en": "  ✅ No sessions from missing directories found."},
-    "delete.missing_summary": {"ru": "  Сессий: {sessions}, директорий: {dirs}, стоимость: {cost}", "en": "  Sessions: {sessions}, directories: {dirs}, cost: {cost}"},
+    "delete.missing_header": {
+        "ru": "ОЧИСТКА СЕССИЙ ИЗ ОТСУТСТВУЮЩИХ ДИРЕКТОРИЙ",
+        "en": "DELETE SESSIONS FROM MISSING DIRECTORIES",
+    },
+    "delete.missing_none": {
+        "ru": "  ✅ Сессий из отсутствующих директорий не найдено.",
+        "en": "  ✅ No sessions from missing directories found.",
+    },
+    "delete.missing_summary": {
+        "ru": "  Сессий: {sessions}, директорий: {dirs}, стоимость: {cost}",
+        "en": "  Sessions: {sessions}, directories: {dirs}, cost: {cost}",
+    },
     "delete.missing_dir_line": {"ru": "    {path} — {n} сессий", "en": "    {path} — {n} sessions"},
-    "delete.missing_preview": {"ru": "Это preview. Для удаления добавь --execute.", "en": "This is a preview. Add --execute to delete."},
-    "delete.missing_incompatible": {"ru": "--missing-directories нельзя сочетать с --older-than/--before/--after/--keep-last/--interactive/session_id.", "en": "--missing-directories cannot be combined with --older-than/--before/--after/--keep-last/--interactive/session_id."},
-    "delete.missing_execute_requires": {"ru": "--execute используется только вместе с --missing-directories.", "en": "--execute can only be used with --missing-directories."},
-    "delete.missing_no_backup_warning": {"ru": "  ⚠️ Backup отключён (--no-backup). Удаление необратимо.", "en": "  ⚠️ Backup disabled (--no-backup). Deletion is irreversible."},
-    "delete.missing_backup_choice": {"ru": "Для --execute укажи --backup или --no-backup (осознанный выбор).", "en": "For --execute, choose --backup or --no-backup explicitly."},
-    "delete.missing_both_backup": {"ru": "Нельзя одновременно --backup и --no-backup.", "en": "Cannot use --backup and --no-backup together."},
-    "delete.missing_phrase_prompt": {"ru": "Введи точно «{phrase}» для продолжения: ", "en": "Type exactly \"{phrase}\" to continue: "},
-    "delete.missing_phrase_mismatch": {"ru": "Фраза не совпала. Удаление отменено.", "en": "Phrase did not match. Deletion canceled."},
-    "delete.missing_final_confirm": {"ru": "Последнее подтверждение: удалить {n} сессий? Это необратимо.", "en": "Final confirmation: delete {n} sessions? This is irreversible."},
-    "delete.missing_changed": {"ru": "Список кандидатов изменился. Удаление отменено; повтори preview.", "en": "Candidate list changed. Deletion canceled; rerun the preview."},
+    "delete.missing_preview": {
+        "ru": "Это preview. Для удаления добавь --execute.",
+        "en": "This is a preview. Add --execute to delete.",
+    },
+    "delete.missing_incompatible": {
+        "ru": "--missing-directories нельзя сочетать с --older-than/--before/--after/--keep-last/--interactive/session_id.",
+        "en": "--missing-directories cannot be combined with --older-than/--before/--after/--keep-last/--interactive/session_id.",
+    },
+    "delete.missing_execute_requires": {
+        "ru": "--execute используется только вместе с --missing-directories.",
+        "en": "--execute can only be used with --missing-directories.",
+    },
+    "delete.missing_no_backup_warning": {
+        "ru": "  ⚠️ Backup отключён (--no-backup). Удаление необратимо.",
+        "en": "  ⚠️ Backup disabled (--no-backup). Deletion is irreversible.",
+    },
+    "delete.missing_backup_choice": {
+        "ru": "Для --execute укажи --backup или --no-backup (осознанный выбор).",
+        "en": "For --execute, choose --backup or --no-backup explicitly.",
+    },
+    "delete.missing_both_backup": {
+        "ru": "Нельзя одновременно --backup и --no-backup.",
+        "en": "Cannot use --backup and --no-backup together.",
+    },
+    "delete.missing_phrase_prompt": {
+        "ru": "Введи точно «{phrase}» для продолжения: ",
+        "en": 'Type exactly "{phrase}" to continue: ',
+    },
+    "delete.missing_phrase_mismatch": {
+        "ru": "Фраза не совпала. Удаление отменено.",
+        "en": "Phrase did not match. Deletion canceled.",
+    },
+    "delete.missing_final_confirm": {
+        "ru": "Последнее подтверждение: удалить {n} сессий? Это необратимо.",
+        "en": "Final confirmation: delete {n} sessions? This is irreversible.",
+    },
+    "delete.missing_changed": {
+        "ru": "Список кандидатов изменился. Удаление отменено; повтори preview.",
+        "en": "Candidate list changed. Deletion canceled; rerun the preview.",
+    },
     "delete.missing_backup_done": {"ru": "  Backup: {path}", "en": "  Backup: {path}"},
-    "delete.missing_backup_failed": {"ru": "Не удалось создать backup: {error}. Удаление отменено.", "en": "Failed to create backup: {error}. Deletion canceled."},
-    "delete.missing_done": {"ru": "  ✅ Удалено сессий: {n}; строк: {rows}.", "en": "  ✅ Sessions deleted: {n}; rows: {rows}."},
-    "delete.missing_error": {"ru": "Ошибка удаления: {error}. Транзакция отменена.", "en": "Deletion error: {error}. Transaction rolled back."},
+    "delete.missing_backup_failed": {
+        "ru": "Не удалось создать backup: {error}. Удаление отменено.",
+        "en": "Failed to create backup: {error}. Deletion canceled.",
+    },
+    "delete.missing_done": {
+        "ru": "  ✅ Удалено сессий: {n}; строк: {rows}.",
+        "en": "  ✅ Sessions deleted: {n}; rows: {rows}.",
+    },
+    "delete.missing_error": {
+        "ru": "Ошибка удаления: {error}. Транзакция отменена.",
+        "en": "Deletion error: {error}. Transaction rolled back.",
+    },
     "delete.missing_db": {"ru": "  База: {path}", "en": "  Database: {path}"},
-    "delete.missing_dry_run": {"ru": "Это preview; база не изменена.", "en": "This is a preview; the database was not changed."},
+    "delete.missing_dry_run": {
+        "ru": "Это preview; база не изменена.",
+        "en": "This is a preview; the database was not changed.",
+    },
     "delete.interactive_prompt": {
         "ru": "  Введи номера (1,3-5) или Enter для отмены: ",
         "en": "  Enter numbers (1,3-5) or Enter to cancel: ",
@@ -359,6 +410,34 @@ L: dict[str, dict[str, str]] = {
     "todos.status": {"ru": "Статус", "en": "Status"},
     "todos.created": {"ru": "создано", "en": "created"},
     # ==================================================================
+    # HEALTH
+    # ==================================================================
+    "health.title": {"ru": "🩺 Здоровье базы данных", "en": "🩺 Database health"},
+    "health.path": {"ru": "База", "en": "Database"},
+    "health.file": {"ru": "Файл", "en": "File"},
+    "health.wal": {"ru": "WAL", "en": "WAL"},
+    "health.shm": {"ru": "SHM", "en": "SHM"},
+    "health.pages": {"ru": "Страницы", "en": "Pages"},
+    "health.live": {"ru": "Живые данные", "en": "Live data"},
+    "health.freelist": {"ru": "Freelist", "en": "Freelist"},
+    "health.reclaimable": {"ru": "Можно вернуть", "en": "Reclaimable"},
+    "health.auto_vacuum": {"ru": "auto_vacuum", "en": "auto_vacuum"},
+    "health.journal": {"ru": "journal_mode", "en": "journal_mode"},
+    "health.schema": {"ru": "Схема", "en": "Schema"},
+    "health.read_only": {"ru": "Только чтение", "en": "Read-only"},
+    "health.yes": {"ru": "да", "en": "yes"},
+    "health.no": {"ru": "нет", "en": "no"},
+    "health.lock": {"ru": "Процессы", "en": "Processes"},
+    "health.lock_unknown": {
+        "ru": "не удалось проверить (нет lsof/fuser)",
+        "en": "unknown (lsof/fuser not available)",
+    },
+    "health.lock_in_use": {
+        "ru": "БД открыта (PID {pids})",
+        "en": "database is open (PID {pids})",
+    },
+    "health.lock_free": {"ru": "не запущен", "en": "not running"},
+    # ==================================================================
     # VACUUM
     # ==================================================================
     "vacuum.header": {"ru": "🗄️  Оптимизация базы данных", "en": "🗄️  Database optimization"},
@@ -366,6 +445,86 @@ L: dict[str, dict[str, str]] = {
     "vacuum.size_after": {"ru": "Размер после", "en": "Size after"},
     "vacuum.path": {"ru": "Путь", "en": "Path"},
     "vacuum.freed": {"ru": "Освобождено", "en": "Freed"},
+    "vacuum.wal": {"ru": "WAL", "en": "WAL"},
+    "vacuum.freelist": {"ru": "Freelist", "en": "Freelist"},
+    "vacuum.journal": {"ru": "journal_mode", "en": "journal_mode"},
+    "vacuum.backup": {"ru": "Backup", "en": "Backup"},
+    "vacuum.backup_enabled": {"ru": "включён", "en": "enabled"},
+    "vacuum.backup_disabled": {"ru": "отключён", "en": "disabled"},
+    "vacuum.backup_creating": {"ru": "Создаётся backup...", "en": "Creating backup..."},
+    "vacuum.backup_path": {"ru": "Backup", "en": "Backup"},
+    "vacuum.backup_skipped": {"ru": "  Backup пропущен.", "en": "  Backup skipped."},
+    "vacuum.free_space": {"ru": "Свободно", "en": "Free space"},
+    "vacuum.required": {"ru": "нужно", "en": "required"},
+    "vacuum.lock": {"ru": "Процессы", "en": "Processes"},
+    "vacuum.lock_free": {"ru": "не запущен", "en": "not running"},
+    "vacuum.lock_in_use": {
+        "ru": "❌ База открыта процессом: {pids}",
+        "en": "❌ Database is open by PID(s): {pids}",
+    },
+    "vacuum.close_opencode": {
+        "ru": "Закройте OpenCode и повторите.",
+        "en": "Close OpenCode and try again.",
+    },
+    "vacuum.lock_unknown": {
+        "ru": "❌ Не удалось проверить, кто держит базу: нет lsof/fuser.",
+        "en": "❌ Cannot check database users: lsof/fuser not available.",
+    },
+    "vacuum.lock_unknown_hint": {
+        "ru": "Установите lsof/fuser или запустите с --skip-lock-check, если уверены, что OpenCode закрыт.",
+        "en": "Install lsof/fuser, or rerun with --skip-lock-check if you are sure OpenCode is closed.",
+    },
+    "vacuum.lock_unknown_short": {"ru": "не удалось проверить", "en": "unknown"},
+    "vacuum.lock_skipped": {
+        "ru": "проверка пропущена (PID {pids})",
+        "en": "check skipped (PID {pids})",
+    },
+    "vacuum.integrity_failed": {
+        "ru": "❌ Проверка целостности не прошла: {message}",
+        "en": "❌ Integrity check failed: {message}",
+    },
+    "vacuum.checkpoint": {"ru": "WAL checkpoint", "en": "WAL checkpoint"},
+    "vacuum.checkpoint_failed": {
+        "ru": "❌ WAL checkpoint не выполнен: {message}",
+        "en": "❌ WAL checkpoint failed: {message}",
+    },
+    "vacuum.final_checkpoint_failed": {
+        "ru": "⚠️  Финальный WAL checkpoint не выполнен: {message}",
+        "en": "⚠️  Final WAL checkpoint failed: {message}",
+    },
+    "vacuum.no_space": {
+        "ru": "❌ Недостаточно места: нужно ~{required}, доступно {free}.",
+        "en": "❌ Not enough free space: need ~{required}, available {free}.",
+    },
+    "vacuum.no_space_hint": {
+        "ru": "Освободите место или запустите с --no-backup (не рекомендуется).",
+        "en": "Free some space, or rerun with --no-backup (not recommended).",
+    },
+    "vacuum.no_backup_warning": {
+        "ru": "⚠️  Backup отключён. Убедитесь, что у вас есть внешняя копия.",
+        "en": "⚠️  Backup disabled. Make sure you have an external copy.",
+    },
+    "vacuum.backup_conflict": {
+        "ru": "Нельзя одновременно использовать --backup и --no-backup.",
+        "en": "Cannot use --backup and --no-backup together.",
+    },
+    "vacuum.auto_vacuum": {"ru": "auto_vacuum", "en": "auto_vacuum"},
+    "vacuum.journal_restored": {
+        "ru": "journal_mode восстановлен: wal",
+        "en": "journal_mode restored: wal",
+    },
+    "vacuum.journal_restore_failed": {
+        "ru": "❌ Не удалось восстановить journal_mode: {error}",
+        "en": "❌ Failed to restore journal_mode: {error}",
+    },
+    "vacuum.post_check_failed": {
+        "ru": "❌ Проверка после VACUUM не прошла: {message}",
+        "en": "❌ Post-VACUUM integrity check failed: {message}",
+    },
+    "vacuum.restore_hint": {
+        "ru": "Для восстановления: остановите OpenCode, скопируйте {backup} поверх {path} и удалите {path}-wal / {path}-shm.",
+        "en": "To restore: stop OpenCode, copy {backup} over {path}, and remove {path}-wal / {path}-shm.",
+    },
     "vacuum.vacuum": {"ru": "Выполняется VACUUM...", "en": "Running VACUUM..."},
     "vacuum.reindex": {"ru": "Выполняется REINDEX...", "en": "Running REINDEX..."},
     "vacuum.analyze": {"ru": "Выполняется ANALYZE...", "en": "Running ANALYZE..."},
@@ -494,11 +653,20 @@ L: dict[str, dict[str, str]] = {
     "help.cmd.tree": {"ru": "Дерево ветвления сессий", "en": "Session branching tree"},
     "help.cmd.projects": {"ru": "Список проектов", "en": "Project list"},
     "help.cmd.directories": {"ru": "Директории запусков", "en": "Launch directories"},
-    "help.directories.e0": {"ru": "Все директории с сессиями", "en": "All directories with sessions"},
-    "help.directories.e1": {"ru": "Только отсутствующие директории", "en": "Only missing directories"},
+    "help.directories.e0": {
+        "ru": "Все директории с сессиями",
+        "en": "All directories with sessions",
+    },
+    "help.directories.e1": {
+        "ru": "Только отсутствующие директории",
+        "en": "Only missing directories",
+    },
     "help.directories.e2": {"ru": "Вывод в JSON", "en": "JSON output"},
     "help.directories.e3": {"ru": "Не проверять файловую систему", "en": "Skip filesystem check"},
-    "directories.title": {"ru": "Директории запусков OpenCode", "en": "OpenCode launch directories"},
+    "directories.title": {
+        "ru": "Директории запусков OpenCode",
+        "en": "OpenCode launch directories",
+    },
     "directories.header.path": {"ru": "Путь", "en": "Path"},
     "directories.header.status": {"ru": "Статус", "en": "Status"},
     "directories.header.project": {"ru": "Проект", "en": "Project"},
@@ -511,9 +679,14 @@ L: dict[str, dict[str, str]] = {
     "directories.global": {"ru": "Global (без корня)", "en": "Global (no project root)"},
     "directories.none": {"ru": "Директории не найдены.", "en": "No directories found."},
     "directories.total": {"ru": "Всего директорий: {n}", "en": "Directories: {n}"},
-    "directories.summary": {"ru": "Директорий: {total}, сессий: {sessions}, отсутствует: {missing}", "en": "Directories: {total}, sessions: {sessions}, missing: {missing}"},
-    "directories.conflict": {"ru": "Нельзя одновременно использовать --missing и --existing.", "en": "Cannot use --missing and --existing together."},
-
+    "directories.summary": {
+        "ru": "Директорий: {total}, сессий: {sessions}, отсутствует: {missing}",
+        "en": "Directories: {total}, sessions: {sessions}, missing: {missing}",
+    },
+    "directories.conflict": {
+        "ru": "Нельзя одновременно использовать --missing и --existing.",
+        "en": "Cannot use --missing and --existing together.",
+    },
     "help.cmd.stats": {"ru": "Статистика БД", "en": "Database statistics"},
     "help.cmd.todos": {"ru": "Задачи из сессий", "en": "Tasks from sessions"},
     "help.cmd.vacuum": {"ru": "Оптимизация БД", "en": "Database optimization"},
@@ -523,6 +696,12 @@ L: dict[str, dict[str, str]] = {
         "ru": "Схема БД и совместимость",
         "en": "Database schema and compatibility",
     },
+    "help.cmd.health": {"ru": "Здоровье хранилища SQLite", "en": "SQLite storage health"},
+    "help.health.e0": {
+        "ru": "Размер, freelist, WAL и режим БД",
+        "en": "Size, freelist, WAL and DB mode",
+    },
+    "help.health.e1": {"ru": "То же в JSON", "en": "Same as JSON"},
     "help.schema.e0": {
         "ru": "Определить семейство схемы и миграции",
         "en": "Detect schema family and migrations",
@@ -570,10 +749,22 @@ L: dict[str, dict[str, str]] = {
         "ru": "Удалить сессии до указанной даты",
         "en": "Delete sessions before a date",
     },
-    "help.delete.e7": {"ru": "Очистить сессии из отсутствующих директорий (preview)", "en": "Preview sessions from missing directories"},
-    "help.delete.e8": {"ru": "Выполнить очистку после подтверждений", "en": "Execute cleanup after confirmations"},
-    "help.prune.e4": {"ru": "Preview очистки отсутствующих директорий", "en": "Preview missing-directory cleanup"},
-    "help.prune.e5": {"ru": "Выполнить очистку отсутствующих директорий", "en": "Execute missing-directory cleanup"},
+    "help.delete.e7": {
+        "ru": "Очистить сессии из отсутствующих директорий (preview)",
+        "en": "Preview sessions from missing directories",
+    },
+    "help.delete.e8": {
+        "ru": "Выполнить очистку после подтверждений",
+        "en": "Execute cleanup after confirmations",
+    },
+    "help.prune.e4": {
+        "ru": "Preview очистки отсутствующих директорий",
+        "en": "Preview missing-directory cleanup",
+    },
+    "help.prune.e5": {
+        "ru": "Выполнить очистку отсутствующих директорий",
+        "en": "Execute missing-directory cleanup",
+    },
     "help.delete.e6": {
         "ru": "Интерактивный выбор из списка",
         "en": "Choose sessions from a list",
@@ -596,7 +787,10 @@ L: dict[str, dict[str, str]] = {
     "help.projects.e0": {"ru": "Проекты со статистикой", "en": "Projects with statistics"},
     "help.projects.e1": {"ru": "Вывод в JSON", "en": "JSON output"},
     "help.projects.e2": {"ru": "Скрыть Global-проект", "en": "Hide the Global project"},
-    "help.projects.e3": {"ru": "Только проекты с отсутствующим путём", "en": "Only projects with a missing path"},
+    "help.projects.e3": {
+        "ru": "Только проекты с отсутствующим путём",
+        "en": "Only projects with a missing path",
+    },
     "help.stats.e0": {
         "ru": "Сессии, сообщения, токены, стоимость, топ моделей",
         "en": "Sessions, messages, tokens, costs, top models",
@@ -607,10 +801,22 @@ L: dict[str, dict[str, str]] = {
     "help.todos.e2": {"ru": "Только ожидающие", "en": "Pending only"},
     "help.todos.e3": {"ru": "Вывод в JSON", "en": "JSON output"},
     "help.vacuum.e0": {
-        "ru": "VACUUM + REINDEX + ANALYZE с подтверждением",
-        "en": "VACUUM + REINDEX + ANALYZE with confirmation",
+        "ru": "VACUUM + REINDEX + ANALYZE с backup и проверками",
+        "en": "VACUUM + REINDEX + ANALYZE with backup and checks",
     },
     "help.vacuum.e1": {"ru": "Без подтверждения", "en": "Skip confirmation"},
+    "help.vacuum.e2": {
+        "ru": "Без backup (не рекомендуется)",
+        "en": "Without backup (not recommended)",
+    },
+    "help.vacuum.e3": {
+        "ru": "Включить incremental auto-vacuum",
+        "en": "Enable incremental auto-vacuum",
+    },
+    "help.vacuum.notes": {
+        "ru": "\nВажно:\n  - VACUUM требует свободного места примерно равного размеру БД.\n  - Backup включён по умолчанию и требует ещё столько же места.\n  - --no-backup отключает backup; используйте только при наличии внешней копии.\n  - Закройте OpenCode. Проверка блокировки — best-effort.\n  - WAL checkpoint выполняется, режим WAL сохраняется.\n  - VACUUM не удаляет сессии и историю чатов.\n",
+        "en": "\nImportant:\n  - VACUUM needs free space roughly equal to the database size.\n  - A verified backup is enabled by default and needs about the same space again.\n  - --no-backup disables the backup; use it only if you have an external copy.\n  - Close OpenCode. The lock check is best-effort.\n  - WAL is checkpointed and preserved.\n  - VACUUM does not delete sessions or chat history.\n",
+    },
     "help.view.e0": {
         "ru": "Просмотр по ID",
         "en": "View by ID",
