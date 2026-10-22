@@ -688,6 +688,16 @@ L: dict[str, dict[str, str]] = {
         "en": "Plain text, no ANSI colors",
     },
     # ==================================================================
+    # DIGEST
+    # ==================================================================
+    "digest.header": {"ru": "🗜️ Compaction-сводки: {title}", "en": "🗜️ Compaction digests: {title}"},
+    "digest.empty": {"ru": "Compaction-сводок нет.", "en": "No compaction digests."},
+    "digest.no_text": {"ru": "текст сводки отсутствует", "en": "no digest text"},
+    "digest.invalid_last": {
+        "ru": "❌ --last должен быть >= 1",
+        "en": "❌ --last must be at least 1",
+    },
+    # ==================================================================
     # HELP
     # ==================================================================
     "help.header_box_top": {
@@ -846,6 +856,11 @@ L: dict[str, dict[str, str]] = {
     },
     "help.export.e4": {"ru": "Перезаписать существующий файл", "en": "Overwrite existing file"},
     "help.export.e5": {"ru": "Добавить заметку в log.md", "en": "Add a note to log.md"},
+    "help.export.e6": {"ru": "Lossless JSON-экспорт", "en": "Lossless JSON export"},
+    "help.cmd.digest": {"ru": "Compaction-сводки сессии", "en": "Session compaction digests"},
+    "help.digest.e0": {"ru": "Все compaction-сводки", "en": "All compaction digests"},
+    "help.digest.e1": {"ru": "Последние 3 сводки", "en": "Last 3 digests"},
+    "help.digest.e2": {"ru": "То же в JSON", "en": "Same as JSON"},
     "help.delete.e0": {"ru": "Удалить с подтверждением", "en": "Delete with confirmation"},
     "help.delete.e1": {"ru": "Показать что будет удалено", "en": "Preview what will be deleted"},
     "help.delete.e2": {"ru": "Без подтверждения", "en": "Skip confirmation"},
@@ -963,6 +978,16 @@ L: dict[str, dict[str, str]] = {
     "md.reasoning": {"ru": "Рассуждение", "en": "Reasoning"},
     "md.sound": {"ru": "Аудиосообщение", "en": "Voice message"},
     "md.result": {"ru": "Результат", "en": "Result"},
+    "md.patch": {"ru": "Патч", "en": "Patch"},
+    "md.patch_hash": {"ru": "hash: `{hash}`", "en": "hash: `{hash}`"},
+    "md.file": {"ru": "Файл", "en": "File"},
+    "md.file_mime": {"ru": "MIME: {mime}", "en": "MIME: {mime}"},
+    "md.file_url": {"ru": "URL: {url}", "en": "URL: {url}"},
+    "md.compaction": {"ru": "Compaction", "en": "Compaction"},
+    "md.unknown_part": {
+        "ru": "Неизвестная часть: {type}",
+        "en": "Unknown part: {type}",
+    },
     "md.header.title": {"ru": "Диалог", "en": "Conversation"},
     "md.header.date": {"ru": "Дата", "en": "Date"},
     "md.header.model": {"ru": "Модель", "en": "Model"},

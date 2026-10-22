@@ -6,7 +6,7 @@ import json
 from typing import Any
 
 from ..db import get_messages
-from .base import BaseStore
+from .base import BaseStore, parse_json_value
 
 
 def _search_in_part_data(data: Any, query_lower: str) -> tuple[bool, str]:
@@ -42,6 +42,90 @@ class V1Store(BaseStore):
 
     def get_messages(self, session_id: str):
         return get_messages(self.conn, session_id)
+
+    def iter_raw_messages(self, session_id: str):
+        rows = self.conn.execute(
+            """
+            SELECT m.id AS message_id,
+                   m.session_id AS message_session_id,
+                   m.time_created AS message_time_created,
+                   m.data AS message_data,
+                   p.id AS part_id,
+                   p.session_id AS part_session_id,
+                   p.time_created AS part_time_created,
+                   p.data AS part_data
+            FROM message m
+            LEFT JOIN part p ON p.message_id = m.id
+            WHERE m.session_id = ?
+            ORDER BY m.time_created, m.id, p.id
+            """,
+            (session_id,),
+        )
+        current = None
+        for row in rows:
+            if current is None or current["id"] != row["message_id"]:
+                if current is not None:
+                    yield current
+                current = {
+                    "id": row["message_id"],
+                    "session_id": row["message_session_id"],
+                    "time_created": row["message_time_created"],
+                    "data": parse_json_value(row["message_data"]),
+                    "parts": [],
+                }
+            if row["part_id"] is None:
+                continue
+            current["parts"].append(
+                {
+                    "id": row["part_id"],
+                    "message_id": row["message_id"],
+                    "session_id": row["part_session_id"],
+                    "time_created": row["part_time_created"],
+                    "data": parse_json_value(row["part_data"]),
+                }
+            )
+        if current is not None:
+            yield current
+
+    def get_compaction_digests(self, session_id: str, limit: int | None = None):
+        rows = self.conn.execute(
+            """
+            SELECT id, time_created, data
+            FROM message
+            WHERE session_id = ?
+              AND json_extract(data, '$.mode') = 'compaction'
+            ORDER BY time_created
+            """,
+            (session_id,),
+        ).fetchall()
+        digests = []
+        for row in rows:
+            data = parse_json_value(row["data"])
+            if not isinstance(data, dict):
+                data = {}
+            texts = []
+            for part in self.conn.execute(
+                "SELECT data FROM part WHERE message_id = ? ORDER BY id", (row["id"],)
+            ):
+                part_data = parse_json_value(part["data"])
+                if isinstance(part_data, dict) and part_data.get("type") == "text":
+                    text = part_data.get("text")
+                    if isinstance(text, str) and text.strip():
+                        texts.append(text)
+            digests.append(
+                {
+                    "message_id": row["id"],
+                    "time_created": row["time_created"],
+                    "text": "\n\n".join(texts),
+                    "agent": data.get("agent"),
+                    "cost": data.get("cost"),
+                    "tokens": data.get("tokens"),
+                    "summary": bool(data.get("summary")),
+                }
+            )
+        if limit is not None:
+            digests = digests[-limit:] if limit > 0 else []
+        return digests
 
     def get_message_count(self, session_id: str | None = None) -> int:
         if session_id:

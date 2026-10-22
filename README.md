@@ -147,8 +147,12 @@ opencode-db list
 # Detailed session info (accepts partial ID)
 opencode-db info ses_1c9d
 
-# Save a dialog in Markdown
+# Save a dialog in Markdown or lossless JSON
 opencode-db export ses_1c9d --force
+opencode-db export ses_1c9d --format json
+
+# Show compaction summaries
+opencode-db digest ses_1c9d --last 3
 
 # Total token costs
 opencode-db costs --total
@@ -264,9 +268,9 @@ Example output:
 
 ---
 
-### `export` — export dialog to Markdown
+### `export` — export dialog to Markdown or lossless JSON
 
-Saves a conversation to `opencode-YYYY-MM-DD_HH.MM.SS.md` in the current directory.
+Saves a conversation to `opencode-YYYY-MM-DD-<short_id>.md` or `.json` in the current directory. The short session ID prevents collisions when two sessions from the same day are exported.
 
 **Three ways to pick a session:**
 
@@ -277,28 +281,69 @@ Saves a conversation to `opencode-YYYY-MM-DD_HH.MM.SS.md` in the current directo
 | Interactive | `export` (no args) | Pick from a numbered list |
 
 ```bash
-opencode-db export ses_1c9d              # export by ID
-opencode-db export --latest              # export the most recent session
-opencode-db export --latest --force      # overwrite if the file exists
-opencode-db export --latest --full       # full output, no truncation
-opencode-db export --latest -n "bug fix" # add a note to log.md
-opencode-db export                       # interactive picker
-opencode-db export --full                # full output (don't truncate tool outputs)
-opencode-db export -o ~/backup           # save to a different directory
+opencode-db export ses_1c9d                  # Markdown export
+opencode-db export ses_1c9d --format json    # lossless JSON archive
+opencode-db export --latest                   # most recent session
+opencode-db export --latest --force           # overwrite if the file exists
+opencode-db export --latest --full            # full Markdown, no truncation
+opencode-db export --latest -n "bug fix"      # add a note to log.md
+opencode-db export                            # interactive picker
+opencode-db export -o ~/backup                # save to a different directory
 ```
 
-The file format is Markdown with a metadata header (date, model, ID) followed by messages in chronological order with speaker labels (user/assistant), model reasoning blocks, and tool calls with their results.
+Markdown keeps speaker labels, reasoning, tool calls and now also `patch` diffs, `file` metadata, `compaction` markers, and an explicit generic block for unknown part types. `step-start`/`step-finish` are skipped normally and included as hidden HTML comments with `--full`.
 
-If the project directory contains `.obsidian`, a `log.md` file is automatically created or appended with a project snapshot (AGENTS.md summary, file and directory counts).
+JSON is the lossless archive format:
+
+```json
+{
+  "format": "opencode-db-export",
+  "schema_version": 1,
+  "tool_version": "0.12.0",
+  "db_schema": "v1",
+  "exported_at": "2026-10-22T18:00:00Z",
+  "session": { "...raw session row...": "..." },
+  "messages": [
+    {
+      "id": "msg_...",
+      "type": "assistant",
+      "role": "assistant",
+      "data": { "...raw message JSON...": "..." },
+      "parts": [{"id": "prt_...", "data": {"type": "patch", "...": "..."}}]
+    }
+  ]
+}
+```
+
+For v1, `parts[].data` is the raw `part.data` JSON. For v2, each `session_message` row is preserved in `data`, and `parts` contains a normalized convenience view. Messages are written one at a time, so a large session does not need to fit in memory as one JSON object.
+
+If the project directory contains `.obsidian`, Markdown export automatically creates or appends `log.md` with a project snapshot.
 
 | Flag | Description | Default |
 |---|---|---|
 | `session_id` | Session ID (optional — interactive mode if omitted) | — |
 | `--latest`, `-l` | Export the most recent session | — |
-| `--full`, `-F` | Full output (do not truncate long tool outputs) | — |
+| `--format {md,json}` | Markdown or lossless JSON | `md` |
+| `--full`, `-F` | Full Markdown output (no truncation; includes hidden step comments) | — |
 | `--force`, `-f` | Overwrite the file if it exists | — |
 | `--note`, `-n` | Description for log.md | — |
 | `--output`, `-o` | Output directory | `os.getcwd()` |
+
+### `digest` — compaction summaries
+
+Shows the summaries OpenCode produced when it compacted a session. Works for v1 (`message.mode='compaction'` + text parts) and v2 (`session_message.type='compaction'`).
+
+```bash
+opencode-db digest ses_1c9d              # all compaction summaries
+opencode-db digest ses_1c9d --last 3     # last three
+opencode-db digest ses_1c9d --json       # machine-readable output
+```
+
+| Flag | Description | Default |
+|---|---|---|
+| `session_id` | Session ID (full or prefix) | required |
+| `--last N` | Show only the last N digests | all |
+| `--json` | JSON output | — |
 
 ---
 
@@ -849,7 +894,7 @@ opencode-db/
 │   ├── config.py                         ← constants and paths
 │   ├── db.py                             ← SQLite queries
 │   ├── formatters.py                     ← tables, JSON, Markdown, snapshots
-│   ├── i18n.py                           ← localization (EN/RU, 478 keys)
+│   ├── i18n.py                           ← localization (EN/RU, 494 keys)
 │   ├── backups.py                        ← managed snapshots, manifest, verify
 │   ├── maintenance.py                    ← backup, integrity, WAL, lock checks
 │   ├── markdown_to_ansi.py               ← Markdown → ANSI renderer for `view`
@@ -869,6 +914,7 @@ opencode-db/
 │       ├── cmd_stats.py                  ← opencode-db stats
 │       ├── cmd_backup.py                 ← opencode-db backup
 │       ├── cmd_backups.py                ← opencode-db backups
+│       ├── cmd_digest.py                 ← opencode-db digest
 │       ├── cmd_health.py                 ← opencode-db health
 │       ├── cmd_todos.py                  ← opencode-db todos
 │       ├── cmd_vacuum.py                 ← opencode-db vacuum
@@ -1003,7 +1049,7 @@ opencode-db --lang en help        # English help text
 opencode-db --lang en stats       # English statistics
 ```
 
-The `--lang` flag applies to any command. All 478 UI strings are translated. Data content (session titles, project names, etc.) remains in its original language.
+The `--lang` flag applies to any command. All 494 UI strings are translated. Data content (session titles, project names, etc.) remains in its original language.
 
 The language can also be set via environment variable `OPENCODE_DB_LANG=en`.
 
@@ -1102,7 +1148,7 @@ source .venv/bin/activate
 uv pip install -e ".[rich]"
 uv pip install pytest ruff==0.17.1
 
-make check          # check-python + ruff + 272 tests
+make check          # check-python + ruff + 279 tests
 ```
 
 `make check` fails fast with a clear message if the active interpreter is older than 3.12.

@@ -404,3 +404,79 @@ def test_v2_missing_directory_cleanup_is_refused(v2db, capsys) -> None:
     )
     assert code == 1
     assert "v2" in capsys.readouterr().out.lower()
+
+
+def test_v2_lossless_export_and_digest(v2db, tmp_path, capsys) -> None:
+    from opencode_db.commands import cmd_digest, cmd_export
+
+    v2db.execute(
+        "INSERT INTO session_message VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (
+            "msg_comp",
+            "ses_v2",
+            "compaction",
+            4,
+            TS + 4,
+            TS + 4,
+            json.dumps(
+                {
+                    "type": "compaction",
+                    "summary": "V2 compacted summary",
+                    "agent": "compaction",
+                    "tokens": {"total": 5},
+                }
+            ),
+        ),
+    )
+    v2db.execute(
+        "INSERT INTO session_message VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (
+            "msg_extra",
+            "ses_v2",
+            "assistant",
+            5,
+            TS + 5,
+            TS + 5,
+            json.dumps(
+                {
+                    "type": "assistant",
+                    "agent": "build",
+                    "time": {"created": TS + 5},
+                    "content": [
+                        {"type": "patch", "hash": "v2hash", "files": ["/tmp/v2.py"]},
+                        {"type": "file", "filename": "v2.txt", "mime": "text/plain"},
+                        {"type": "custom", "foo": "bar"},
+                    ],
+                }
+            ),
+        ),
+    )
+    v2db.commit()
+
+    store = open_store(v2db)
+    raw = store.get_raw_messages("ses_v2")
+    assert any(message["type"] == "compaction" for message in raw)
+    extra = next(message for message in raw if message["id"] == "msg_extra")
+    assert extra["data"]["content"][2]["foo"] == "bar"
+
+    args = _ns(
+        session_id="ses_v2",
+        latest=False,
+        full=False,
+        force=True,
+        note=None,
+        output=str(tmp_path),
+        format="json",
+    )
+    assert cmd_export.run(args, v2db) == 0
+    data = json.loads(next(tmp_path.glob("*.json")).read_text(encoding="utf-8"))
+    assert data["db_schema"] == "v2"
+    exported = next(message for message in data["messages"] if message["id"] == "msg_extra")
+    assert exported["data"]["content"][0]["hash"] == "v2hash"
+    assert exported["data"]["content"][2]["foo"] == "bar"
+    capsys.readouterr()
+
+    assert cmd_digest.run(_ns(session_id="ses_v2", last=None, json=True), v2db) == 0
+    digest = json.loads(capsys.readouterr().out)
+    assert digest["count"] == 1
+    assert digest["digests"][0]["text"] == "V2 compacted summary"

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from .base import BaseStore
+from .base import BaseStore, parse_json_value
 
 CONVERSATION_TYPES = ("user", "assistant")
 SEARCHABLE_TYPES = ("user", "assistant", "synthetic", "system", "skill", "shell", "compaction")
@@ -64,7 +64,15 @@ def _parts_for_message(data: dict[str, Any]) -> list[dict[str, Any]]:
             for item in files:
                 if isinstance(item, dict):
                     name = item.get("name") or item.get("filename") or "file"
-                    parts.append({"type": "text", "text": f"[file] {name}"})
+                    parts.append(
+                        {
+                            "type": "file",
+                            "filename": name,
+                            "mime": item.get("mime", ""),
+                            "url": item.get("url", ""),
+                            "source": item,
+                        }
+                    )
         return parts
 
     if message_type == "assistant":
@@ -97,6 +105,45 @@ def _parts_for_message(data: dict[str, Any]) -> list[dict[str, Any]]:
                             "status": state.get("status", ""),
                         }
                     )
+                elif item_type == "patch":
+                    parts.append(
+                        {
+                            "type": "patch",
+                            "hash": item.get("hash", ""),
+                            "files": item.get("files") if isinstance(item.get("files"), list) else [],
+                        }
+                    )
+                elif item_type == "file":
+                    parts.append(
+                        {
+                            "type": "file",
+                            "filename": item.get("filename", ""),
+                            "mime": item.get("mime", ""),
+                            "url": item.get("url", ""),
+                            "source": item.get("source"),
+                        }
+                    )
+                elif item_type == "step-start":
+                    parts.append({"type": "step-start"})
+                elif item_type == "step-finish":
+                    parts.append(
+                        {
+                            "type": "step-finish",
+                            "reason": item.get("reason", ""),
+                            "cost": item.get("cost"),
+                            "tokens": item.get("tokens"),
+                        }
+                    )
+                elif item_type == "compaction":
+                    parts.append(
+                        {
+                            "type": "compaction",
+                            "auto": item.get("auto"),
+                            "overflow": item.get("overflow"),
+                        }
+                    )
+                elif item_type:
+                    parts.append({"type": item_type, "data": item})
         return parts
 
     if message_type in ("synthetic", "system", "skill"):
@@ -120,9 +167,27 @@ def _parts_for_message(data: dict[str, Any]) -> list[dict[str, Any]]:
         return parts
 
     if message_type == "compaction":
-        text = data.get("summary")
-        if isinstance(text, str) and text.strip():
-            parts.append({"type": "text", "text": text})
+        texts = []
+        summary = data.get("summary")
+        if isinstance(summary, str) and summary.strip():
+            texts.append(summary)
+        content = data.get("content")
+        if isinstance(content, list):
+            texts.extend(
+                item["text"]
+                for item in content
+                if isinstance(item, dict) and isinstance(item.get("text"), str)
+            )
+        text = "\n\n".join(texts)
+        if text.strip():
+            parts.append(
+                {
+                    "type": "compaction",
+                    "text": text,
+                    "auto": data.get("auto"),
+                    "overflow": data.get("overflow"),
+                }
+            )
         return parts
 
     return parts
@@ -215,6 +280,65 @@ class V2Store(BaseStore):
                 }
             )
         return messages
+
+    def iter_raw_messages(self, session_id: str):
+        rows = self.conn.execute(
+            "SELECT * FROM session_message WHERE session_id = ? ORDER BY seq",
+            (session_id,),
+        )
+        for row in rows:
+            data = parse_json_value(row["data"])
+            yield {
+                "id": row["id"],
+                "session_id": row["session_id"],
+                "type": row["type"],
+                "seq": row["seq"],
+                "time_created": row["time_created"],
+                "time_updated": row["time_updated"],
+                "data": data,
+                "parts": _parts_for_message(data) if isinstance(data, dict) else [],
+            }
+
+    def get_compaction_digests(self, session_id: str, limit: int | None = None):
+        rows = self.conn.execute(
+            """
+            SELECT id, time_created, data
+            FROM session_message
+            WHERE session_id = ? AND type = 'compaction'
+            ORDER BY seq
+            """,
+            (session_id,),
+        ).fetchall()
+        digests = []
+        for row in rows:
+            data = _load_json(row["data"])
+            text = data.get("summary") or data.get("text")
+            if not isinstance(text, str):
+                text = ""
+            if not text:
+                content = data.get("content")
+                if isinstance(content, list):
+                    chunks = [
+                        item["text"]
+                        for item in content
+                        if isinstance(item, dict) and isinstance(item.get("text"), str)
+                    ]
+                    text = "\n\n".join(chunks)
+            digests.append(
+                {
+                    "message_id": row["id"],
+                    "time_created": row["time_created"],
+                    "text": text,
+                    "agent": data.get("agent"),
+                    "cost": data.get("cost"),
+                    "tokens": data.get("tokens"),
+                    "auto": data.get("auto"),
+                    "overflow": data.get("overflow"),
+                }
+            )
+        if limit is not None:
+            digests = digests[-limit:] if limit > 0 else []
+        return digests
 
     def _count_parts(self, session_id: str | None = None) -> int:
         return sum(

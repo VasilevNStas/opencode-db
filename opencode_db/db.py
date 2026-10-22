@@ -164,6 +164,7 @@ def get_messages(db, session_id):
         SELECT m.id,
                json_extract(m.data, '$.role') as role,
                json_extract(m.data, '$.agent') as agent,
+               json_extract(m.data, '$.mode') as mode,
                m.time_created,
                p.data as part_data
         FROM message m
@@ -200,6 +201,7 @@ def get_messages(db, session_id):
                 "id": msg_id,
                 "role": row["role"],
                 "agent": row["agent"],
+                "mode": row["mode"],
                 "time": row["time_created"],
                 "parts": [],
             }
@@ -229,6 +231,51 @@ def get_messages(db, session_id):
 
         elif part_type == "sound":
             parts.append({"type": "sound"})
+
+        elif part_type == "patch":
+            parts.append(
+                {
+                    "type": "patch",
+                    "hash": data.get("hash", ""),
+                    "files": data.get("files") if isinstance(data.get("files"), list) else [],
+                }
+            )
+
+        elif part_type == "file":
+            parts.append(
+                {
+                    "type": "file",
+                    "filename": data.get("filename", ""),
+                    "mime": data.get("mime", ""),
+                    "url": data.get("url", ""),
+                    "source": data.get("source"),
+                }
+            )
+
+        elif part_type == "step-start":
+            parts.append({"type": "step-start"})
+
+        elif part_type == "step-finish":
+            parts.append(
+                {
+                    "type": "step-finish",
+                    "reason": data.get("reason", ""),
+                    "cost": data.get("cost"),
+                    "tokens": data.get("tokens"),
+                }
+            )
+
+        elif part_type == "compaction":
+            parts.append(
+                {
+                    "type": "compaction",
+                    "auto": data.get("auto"),
+                    "overflow": data.get("overflow"),
+                }
+            )
+
+        elif part_type:
+            parts.append({"type": part_type, "data": data})
 
     if current:
         messages.append(current)

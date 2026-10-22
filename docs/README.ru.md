@@ -144,8 +144,12 @@ opencode-db list
 # Детальная информация о сессии (можно по префиксу ID)
 opencode-db info ses_1c9d
 
-# Сохранить диалог в Markdown
+# Сохранить диалог в Markdown или lossless JSON
 opencode-db export ses_1c9d --force
+opencode-db export ses_1c9d --format json
+
+# Compaction-сводки
+opencode-db digest ses_1c9d --last 3
 
 # Общие расходы на токены
 opencode-db costs --total
@@ -261,9 +265,9 @@ opencode-db info ses_1c9d --json         # в JSON
 
 ---
 
-### `export` — экспорт диалога в Markdown
+### `export` — экспорт диалога в Markdown или lossless JSON
 
-Сохраняет диалог в файл `opencode-YYYY-MM-DD_HH.MM.SS.md` в текущей директории.
+Сохраняет диалог в `opencode-YYYY-MM-DD-<short_id>.md` или `.json` в текущей директории. Короткий ID сессии предотвращает конфликт, если в один день экспортируются две сессии.
 
 **Три режима выбора сессии:**
 
@@ -274,29 +278,69 @@ opencode-db info ses_1c9d --json         # в JSON
 | Интерактивный | `export` (без аргументов) | Выбор из нумерованного списка |
 
 ```bash
-opencode-db export ses_1c9d                    # по ID
+opencode-db export ses_1c9d                    # Markdown
+opencode-db export ses_1c9d --format json      # lossless JSON-архив
 opencode-db export --latest                    # самая свежая
-opencode-db export --latest --force            # последняя, перезаписать
-opencode-db export --latest -n "рефакторинг"   # последняя, с заметкой
+opencode-db export --latest --force            # перезаписать
+opencode-db export --latest -n "рефакторинг"   # с заметкой
 opencode-db export                             # интерактивный выбор
-opencode-db export --full                      # полный вывод (без обрезания output'ов)
-opencode-db export -o ~/backup                 # сохранить в другую директорию
+opencode-db export --full                      # полный Markdown без обрезания
+opencode-db export -o ~/backup                 # в другую директорию
 ```
 
-Интерактивный режим показывает 15 последних сессий с датой и стоимостью — выбираешь номер, и диалог сохраняется.
+Markdown сохраняет роли, reasoning, tool calls, а теперь ещё `patch`-диффы, метаданные `file`, маркеры `compaction` и generic-блок для неизвестных типов частей. `step-start`/`step-finish` обычно пропускаются, а с `--full` попадают в скрытые HTML-комментарии.
 
-Формат файла — Markdown с заголовком (дата, модель, ID) и сообщениями по порядку с разбивкой на роли (user/assistant), рассуждения модели (reasoning) и вызовы инструментов.
+JSON — lossless-формат архива:
 
-Если в проекте есть директория `.obsidian` — автоматически дополняется `log.md` со snapshot структуры проекта (AGENTS.md, количество файлов и директорий).
+```json
+{
+  "format": "opencode-db-export",
+  "schema_version": 1,
+  "tool_version": "0.12.0",
+  "db_schema": "v1",
+  "exported_at": "2026-10-22T18:00:00Z",
+  "session": { "...сырая строка session...": "..." },
+  "messages": [
+    {
+      "id": "msg_...",
+      "type": "assistant",
+      "role": "assistant",
+      "data": { "...сырой JSON сообщения...": "..." },
+      "parts": [{"id": "prt_...", "data": {"type": "patch", "...": "..."}}]
+    }
+  ]
+}
+```
+
+Для v1 `parts[].data` — сырой JSON из `part.data`. Для v2 каждая строка `session_message` сохраняется в `data`, а `parts` содержит нормализованное представление для удобства. Сообщения пишутся по одному, поэтому большой JSON не нужно держать в памяти целиком.
+
+Если в проекте есть `.obsidian`, Markdown-экспорт автоматически дополняет `log.md` snapshot'ом проекта.
 
 | Флаг | Описание | По умолчанию |
 |---|---|---|
 | `session_id` | ID сессии (опционально) | — |
 | `--latest`, `-l` | Экспорт самой свежей сессии | — |
-| `--full`, `-F` | Полный вывод (не обрезать длинные output'ы) | — |
+| `--format {md,json}` | Markdown или lossless JSON | `md` |
+| `--full`, `-F` | Полный Markdown (без обрезания; скрытые step-комментарии) | — |
 | `--force`, `-f` | Перезаписать существующий файл | — |
 | `--note`, `-n` | Описание сессии для log.md | — |
 | `--output`, `-o` | Директория для сохранения | `os.getcwd()` |
+
+### `digest` — compaction-сводки
+
+Показывает сводки, которые OpenCode создал при compaction сессии. Работает для v1 (`message.mode='compaction'` + text parts) и v2 (`session_message.type='compaction'`).
+
+```bash
+opencode-db digest ses_1c9d              # все compaction-сводки
+opencode-db digest ses_1c9d --last 3     # последние три
+opencode-db digest ses_1c9d --json       # машинный вывод
+```
+
+| Флаг | Описание | По умолчанию |
+|---|---|---|
+| `session_id` | ID сессии (полный или префикс) | обязательно |
+| `--last N` | Только последние N сводок | все |
+| `--json` | JSON-вывод | — |
 
 ---
 
@@ -858,7 +902,7 @@ opencode-db/
 │   ├── config.py                         ← константы и пути
 │   ├── db.py                             ← запросы к SQLite
 │   ├── formatters.py                     ← таблицы, JSON, Markdown, snapshot
-│   ├── i18n.py                           ← локализация (EN/RU, 478 ключей)
+│   ├── i18n.py                           ← локализация (EN/RU, 494 ключа)
 │   ├── backups.py                        ← управляемые снимки, manifest, verify
 │   ├── maintenance.py                    ← backup, integrity, WAL, проверка блокировок
 │   ├── markdown_to_ansi.py               ← Markdown → ANSI для `view`
@@ -878,6 +922,7 @@ opencode-db/
 │       ├── cmd_stats.py                  ← opencode-db stats
 │       ├── cmd_backup.py                 ← opencode-db backup
 │       ├── cmd_backups.py                ← opencode-db backups
+│       ├── cmd_digest.py                 ← opencode-db digest
 │       ├── cmd_health.py                 ← opencode-db health
 │       ├── cmd_todos.py                  ← opencode-db todos
 │       ├── cmd_vacuum.py                 ← opencode-db vacuum
@@ -1012,7 +1057,7 @@ opencode-db --lang en help        # справка на английском
 opencode-db --lang en stats       # статистика на английском
 ```
 
-Флаг `--lang` работает с любой командой. Переведены все 478 строк интерфейса. Содержимое данных (названия сессий, проектов и т.д.) остаётся на языке оригинала.
+Флаг `--lang` работает с любой командой. Переведены все 494 строки интерфейса. Содержимое данных (названия сессий, проектов и т.д.) остаётся на языке оригинала.
 
 Язык также можно задать через переменную окружения `OPENCODE_DB_LANG=en`.
 
@@ -1102,7 +1147,7 @@ source .venv/bin/activate
 uv pip install -e ".[rich]"
 uv pip install pytest ruff==0.17.1
 
-make check          # check-python + ruff + 272 теста
+make check          # check-python + ruff + 279 тестов
 ```
 
 `make check` сразу завершается с понятной ошибкой, если активный интерпретатор старее 3.12.
