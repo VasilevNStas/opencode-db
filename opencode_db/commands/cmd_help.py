@@ -69,6 +69,7 @@ _COMMANDS = [
             ("--all", "help.export.e10"),
             ("--with-subagents", "help.export.e11"),
             ("--no-subagents", "help.export.e12"),
+            ("--sanitize", "help.export.e13"),
         ],
     ),
     (

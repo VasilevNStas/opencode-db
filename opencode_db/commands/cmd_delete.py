@@ -28,6 +28,8 @@ _DELETE_EXAMPLES = [
     ("--interactive", "help.delete.e6"),
     ("--missing-directories", "help.delete.e7"),
     ("--missing-directories --execute", "help.delete.e8"),
+    ("<session_id> --with-children", "help.delete.e9"),
+    ("--missing-directories --with-children", "help.delete.e10"),
 ]
 
 
@@ -53,11 +55,16 @@ def register(subparsers) -> None:
         help="Sessions whose directory no longer exists (preview by default)",
     )
     p.add_argument("--execute", action="store_true", help="Execute missing-directory cleanup")
+    p.add_argument(
+        "--with-children",
+        action="store_true",
+        help="Include all descendant sessions",
+    )
     p.add_argument("--backup", action="store_true", help="Create a DB backup before deletion")
     p.add_argument("--no-backup", action="store_true", help="Skip the DB backup")
 
 
-def _delete_single(db, session_id, dry_run, force) -> int:
+def _delete_single(db, store, session_id, dry_run, force, with_children=False) -> int:
     """Удаление одной сессии по ID."""
     try:
         info = get_session_info(db, session_id)
@@ -70,6 +77,7 @@ def _delete_single(db, session_id, dry_run, force) -> int:
     msg_count = get_message_count(db, sid)
     part_count = get_part_count(db, sid)
     created = format_ts(info["time_created"])
+    children = store.get_descendant_ids(sid) if with_children else []
 
     print(f"\n{'=' * 50}")
     print(f"  {_('delete.header')}")
@@ -81,6 +89,14 @@ def _delete_single(db, session_id, dry_run, force) -> int:
     print(f"  {_('delete.messages')}:  {msg_count}")
     print(f"  {_('delete.parts')}:     {part_count}")
     print(f"  {_('delete.cost')}:  {format_cost(info['cost'])}")
+    if with_children:
+        print(f"  {_('delete.children')}: {len(children)}")
+        for child_id in children[:20]:
+            row = db.execute("SELECT title FROM session WHERE id = ?", (child_id,)).fetchone()
+            title_value = row["title"] if row and row["title"] else "—"
+            print(f"    • {child_id[:24]}  {title_value}")
+        if len(children) > 20:
+            print(f"    … {_('delete.children_more', n=len(children) - 20)}")
 
     if dry_run:
         print(f"\n{_('delete.dry_run')}")
@@ -91,11 +107,22 @@ def _delete_single(db, session_id, dry_run, force) -> int:
         print(_("canceled"))
         return 0
 
-    db.execute("DELETE FROM session WHERE id = ?", (sid,))
-    db.commit()
-
-    print(f"\n{_('delete.done', id=sid[:24])}")
-    print(_("delete.done_detail", msg=msg_count, parts=part_count))
+    if with_children:
+        try:
+            deleted = _delete_session_rows(db, [sid, *children], set(store.schema.tables))
+            db.commit()
+        except Exception as exc:
+            db.rollback()
+            print(_("delete.error", error=exc))
+            return 1
+        print(f"\n{_('delete.done', id=sid[:24])}")
+        print(_("delete.done_detail", msg=msg_count, parts=part_count))
+        print(_("delete.done_children", n=len(children), rows=deleted))
+    else:
+        db.execute("DELETE FROM session WHERE id = ?", (sid,))
+        db.commit()
+        print(f"\n{_('delete.done', id=sid[:24])}")
+        print(_("delete.done_detail", msg=msg_count, parts=part_count))
     return 0
 
 
@@ -342,6 +369,31 @@ _SESSION_SCOPED_TABLES = (
 _EVENT_SCOPED_TABLES = ("event", "event_sequence")
 
 
+def _session_row_brief(db, session_id):
+    row = db.execute(
+        "SELECT id, title, directory, time_created, cost, parent_id "
+        "FROM session WHERE id = ?",
+        (session_id,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def _expand_tree_targets(db, targets):
+    """Add all descendants of the given target rows."""
+    store = open_store(db)
+    seen = {target["id"] for target in targets}
+    expanded = list(targets)
+    for target in targets:
+        for child_id in store.get_descendant_ids(target["id"]):
+            if child_id in seen:
+                continue
+            row = _session_row_brief(db, child_id)
+            if row:
+                expanded.append(row)
+                seen.add(child_id)
+    return expanded
+
+
 def _missing_directory_targets(db, project_id=None):
     where = "WHERE directory IS NOT NULL AND directory != ''"
     params = []
@@ -394,14 +446,25 @@ def _delete_missing_dirs(db, args) -> int:
         return 1
 
     project_id = _a(args, "project")
-    targets = _missing_directory_targets(db, project_id)
-    if not targets:
+    roots = _missing_directory_targets(db, project_id)
+    if not roots:
         print(_("delete.missing_none"))
         return 0
 
+    with_children = _a(args, "with_children", False)
+    targets = _expand_tree_targets(db, roots) if with_children else roots
+    child_count = len(targets) - len(roots)
+    existing_children = 0
+    if child_count:
+        existing_children = sum(
+            1
+            for target in targets[len(roots) :]
+            if target["directory"] and os.path.isdir(target["directory"])
+        )
+
     db_path = resolve_db_path()[0]
     groups = {}
-    for target in targets:
+    for target in roots:
         groups.setdefault(target["directory"], []).append(target)
     total_cost = sum(target["cost"] or 0 for target in targets)
     times = [target["time_created"] for target in targets if target["time_created"]]
@@ -420,6 +483,24 @@ def _delete_missing_dirs(db, args) -> int:
             cost=format_cost(total_cost),
         )
     )
+    if with_children:
+        print(
+            _(
+                "delete.missing_children",
+                n=child_count,
+                existing=existing_children,
+            )
+        )
+        for child in targets[len(roots) :][:20]:
+            if child["directory"] and os.path.isdir(child["directory"]):
+                print(
+                    _(
+                        "delete.missing_existing_child",
+                        id=child["id"][:24],
+                        title=child["title"] or "—",
+                        path=child["directory"],
+                    )
+                )
     first_label = format_ts(first_ts) if first_ts else "—"
     last_label = format_ts(last_ts) if last_ts else "—"
     print(f"  {first_label} — {last_label}")
@@ -458,7 +539,8 @@ def _delete_missing_dirs(db, args) -> int:
             return 1
         print(_("delete.missing_backup_done", path=backup_path))
 
-    fresh = _missing_directory_targets(db, project_id)
+    fresh_roots = _missing_directory_targets(db, project_id)
+    fresh = _expand_tree_targets(db, fresh_roots) if with_children else fresh_roots
     fresh_ids = {target["id"] for target in fresh}
     target_ids = {target["id"] for target in targets}
     if fresh_ids != target_ids:
@@ -490,6 +572,11 @@ def run(args, db) -> int:
     if _a(args, "execute", False) and not _a(args, "missing_directories", False):
         print(_("delete.missing_execute_requires"))
         return 1
+    if _a(args, "with_children", False) and not (
+        _a(args, "session_id") or _a(args, "missing_directories", False)
+    ):
+        print(_("delete.with_children_scope"))
+        return 1
     if _a(args, "missing_directories", False):
         return _delete_missing_dirs(db, args)
     if _a(args, "interactive", False):
@@ -499,7 +586,14 @@ def run(args, db) -> int:
         session_id = _a(args, "session_id")
         dry_run = _a(args, "dry_run", False)
         force = _a(args, "force", False)
-        return _delete_single(db, session_id, dry_run, force)
+        return _delete_single(
+            db,
+            store,
+            session_id,
+            dry_run,
+            force,
+            with_children=_a(args, "with_children", False),
+        )
 
     older_than = _a(args, "older_than")
     before = _a(args, "before")

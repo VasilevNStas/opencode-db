@@ -307,6 +307,86 @@ class TestDeleteCommand:
         with patch("opencode_db.commands.cmd_delete.confirm", return_value=False):
             assert run(args, db) == 0
 
+    def test_delete_tree_preview_and_execute(self, db) -> None:
+        from opencode_db.commands.cmd_delete import run
+
+        db.execute(
+            "INSERT INTO session (id, title, time_created, time_updated, parent_id) "
+            "VALUES (?, ?, ?, ?, ?)",
+            ("ses_grandchild", "Grandchild", 1, 1, "ses_002"),
+        )
+        db.commit()
+
+        args = _ns(
+            session_id="ses_001",
+            dry_run=True,
+            force=False,
+            with_children=True,
+        )
+        assert run(args, db) == 0
+        assert db.execute("SELECT COUNT(*) FROM session").fetchone()[0] == 5
+
+        args.dry_run = False
+        args.force = True
+        assert run(args, db) == 0
+        ids = {row[0] for row in db.execute("SELECT id FROM session")}
+        assert ids == {"ses_003", "ses_004"}
+
+    def test_delete_tree_scope_rejected_for_mass(self, db) -> None:
+        from opencode_db.commands.cmd_delete import run
+
+        args = _ns(
+            session_id=None,
+            older_than="30d",
+            with_children=True,
+            dry_run=True,
+            force=False,
+        )
+        assert run(args, db) == 1
+
+    def test_missing_dirs_with_existing_child(self, db, tmp_path) -> None:
+        from opencode_db.commands.cmd_delete import run
+
+        missing = tmp_path / "gone"
+        existing = tmp_path / "kept"
+        existing.mkdir()
+        db.execute("UPDATE session SET directory = ?", (str(existing),))
+        db.execute(
+            "INSERT INTO session (id, title, time_created, time_updated, directory, parent_id) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            ("ses_missing_root", "Missing root", 1, 1, str(missing), None),
+        )
+        db.execute(
+            "INSERT INTO session (id, title, time_created, time_updated, directory, parent_id) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            ("ses_existing_child", "Existing child", 2, 2, str(existing), "ses_missing_root"),
+        )
+        db.commit()
+
+        args = _ns(
+            session_id=None,
+            missing_directories=True,
+            with_children=True,
+            execute=False,
+            dry_run=False,
+            backup=False,
+            no_backup=True,
+            project=None,
+        )
+        assert run(args, db) == 0
+        assert db.execute("SELECT COUNT(*) FROM session").fetchone()[0] == 6
+
+        args.execute = True
+        with (
+            patch("builtins.input", return_value="DELETE 2 SESSIONS"),
+            patch("opencode_db.commands.cmd_delete.confirm", return_value=True),
+        ):
+            assert run(args, db) == 0
+        ids = {row[0] for row in db.execute("SELECT id FROM session")}
+        assert "ses_missing_root" not in ids
+        assert "ses_existing_child" not in ids
+        assert existing.is_dir()
+
 
 class TestHelpCommand:
     def test_help_general(self, db) -> None:

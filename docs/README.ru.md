@@ -302,7 +302,7 @@ JSON — lossless-формат архива:
 {
   "format": "opencode-db-export",
   "schema_version": 1,
-  "tool_version": "0.13.0",
+  "tool_version": "0.14.0",
   "db_schema": "v1",
   "exported_at": "2026-10-22T18:00:00Z",
   "session": { "...сырая строка session...": "..." },
@@ -320,6 +320,8 @@ JSON — lossless-формат архива:
 
 Для v1 `parts[].data` — сырой JSON из `part.data`. Для v2 каждая строка `session_message` сохраняется в `data`, а `parts` содержит нормализованное представление для удобства. Сообщения пишутся по одному, поэтому большой JSON не нужно держать в памяти целиком.
 
+`--sanitize` включает best-effort redaction для Markdown и JSON: ключи `sk-` (OpenAI/Anthropic), GitHub `ghp_`/`github_pat_`, Slack `xox*`, Google `AIza`, AWS `AKIA`, JWT, `Bearer` и PEM private keys. Это страховка, а не гарантия; проверяйте экспорт перед публикацией. База данных не изменяется.
+
 Если в проекте есть `.obsidian`, Markdown-экспорт автоматически дополняет `log.md` snapshot'ом проекта.
 
 | Флаг | Описание | По умолчанию |
@@ -328,6 +330,7 @@ JSON — lossless-формат архива:
 | `--latest`, `-l` | Экспорт самой свежей сессии | — |
 | `--format {md,json}` | Markdown или lossless JSON | `md` |
 | `--full`, `-F` | Полный Markdown (без обрезания; скрытые step-комментарии) | — |
+| `--sanitize` | Best-effort redaction секретов (Markdown и JSON) | — |
 | `--force`, `-f` | Перезаписать существующий файл | — |
 | `--note`, `-n` | Описание сессии для log.md | — |
 | `--output`, `-o` | Директория для сохранения | `os.getcwd()` |
@@ -377,6 +380,7 @@ opencode-export-YYYYMMDD-HHMMSS/
 | `--all` | Все сессии |
 | `--with-subagents` | Включить дочерние сессии (по умолчанию для `--last`) |
 | `--no-subagents` | Не включать дочерние сессии |
+| `--sanitize` | Redaction секретов в transcript, index и metadata |
 
 ### `digest` — compaction-сводки
 
@@ -404,6 +408,8 @@ opencode-db digest ses_1c9d --json       # машинный вывод
 opencode-db delete ses_1c9d                              # одна сессия с подтверждением
 opencode-db delete ses_1c9d --force                      # одна сессия без подтверждения
 opencode-db delete ses_1c9d --dry-run                    # показать что будет удалено
+opencode-db delete ses_1c9d --with-children              # сессия + все потомки
+opencode-db delete ses_1c9d --with-children --dry-run    # preview всего дерева
 opencode-db delete --older-than 90d                      # сессии старше 90 дней
 opencode-db delete --older-than 6m --dry-run             # предпросмотр старше 6 месяцев
 opencode-db delete --keep-last 30                        # оставить 30 последних
@@ -413,6 +419,7 @@ opencode-db delete --project proj_xxx                    # по проекту
 opencode-db delete --older-than 90d --keep-last 20       # комбинация фильтров
 opencode-db delete --interactive                         # выбор из списка
 opencode-db prune --missing-directories                  # preview сессий из отсутствующих путей
+opencode-db prune --missing-directories --with-children  # вместе с потомками
 ```
 
 | Флаг | Описание |
@@ -424,6 +431,7 @@ opencode-db prune --missing-directories                  # preview сессий 
 | `--keep-last` | Оставить N последних |
 | `--project` | Фильтр по проекту |
 | `--dry-run` | Только показать что будет удалено |
+| `--with-children` | Включить всех потомков (одиночное удаление / missing-directories) |
 | `--force`, `-f` | Без подтверждения |
 | `--interactive` | Выбор из списка |
 | `--missing-directories` | Сессии, чья директория больше не существует (по умолчанию preview) |
@@ -596,6 +604,8 @@ opencode-db prune --missing-directories --execute --no-backup
 8. Все удаления идут в одной транзакции; при ошибке выполняется rollback.
 
 `--force` **не** обходит эти проверки. В этом режиме он игнорируется.
+
+С `--with-children` набор кандидатов расширяется всеми потомками. Preview показывает число дочерних сессий и отдельно перечисляет детей, чья директория ещё существует, потому что они тоже будут удалены. Фраза подтверждения использует расширенный total. `--with-children` работает только с одиночным `session_id` или `--missing-directories`; массовые фильтры и `--interactive` не меняются.
 
 #### Что именно удаляется
 
@@ -954,7 +964,7 @@ opencode-db/
 │   ├── config.py                         ← константы и пути
 │   ├── db.py                             ← запросы к SQLite
 │   ├── formatters.py                     ← таблицы, JSON, Markdown, snapshot
-│   ├── i18n.py                           ← локализация (EN/RU, 515 ключей)
+│   ├── i18n.py                           ← локализация (EN/RU, 526 ключей)
 │   ├── backups.py                        ← управляемые снимки, manifest, verify
 │   ├── maintenance.py                    ← backup, integrity, WAL, проверка блокировок
 │   ├── markdown_to_ansi.py               ← Markdown → ANSI для `view`
@@ -1109,7 +1119,7 @@ opencode-db --lang en help        # справка на английском
 opencode-db --lang en stats       # статистика на английском
 ```
 
-Флаг `--lang` работает с любой командой. Переведены все 515 строк интерфейса. Содержимое данных (названия сессий, проектов и т.д.) остаётся на языке оригинала.
+Флаг `--lang` работает с любой командой. Переведены все 526 строк интерфейса. Содержимое данных (названия сессий, проектов и т.д.) остаётся на языке оригинала.
 
 Язык также можно задать через переменную окружения `OPENCODE_DB_LANG=en`.
 
@@ -1199,7 +1209,7 @@ source .venv/bin/activate
 uv pip install -e ".[rich]"
 uv pip install pytest ruff==0.17.1
 
-make check          # check-python + ruff + 291 тест
+make check          # check-python + ruff + 309 тестов
 ```
 
 `make check` сразу завершается с понятной ошибкой, если активный интерпретатор старее 3.12.

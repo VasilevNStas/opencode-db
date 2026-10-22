@@ -305,7 +305,7 @@ JSON is the lossless archive format:
 {
   "format": "opencode-db-export",
   "schema_version": 1,
-  "tool_version": "0.13.0",
+  "tool_version": "0.14.0",
   "db_schema": "v1",
   "exported_at": "2026-10-22T18:00:00Z",
   "session": { "...raw session row...": "..." },
@@ -323,6 +323,8 @@ JSON is the lossless archive format:
 
 For v1, `parts[].data` is the raw `part.data` JSON. For v2, each `session_message` row is preserved in `data`, and `parts` contains a normalized convenience view. Messages are written one at a time, so a large session does not need to fit in memory as one JSON object.
 
+`--sanitize` applies a best-effort redaction pass to Markdown and JSON values: OpenAI/Anthropic-style `sk-` keys, GitHub `ghp_`/`github_pat_`, Slack `xox*`, Google `AIza`, AWS `AKIA`, JWT, `Bearer` tokens, and PEM private keys. It is a safety net, not a guarantee; review exports before sharing them. The database is never modified.
+
 If the project directory contains `.obsidian`, Markdown export automatically creates or appends `log.md` with a project snapshot.
 
 | Flag | Description | Default |
@@ -331,6 +333,7 @@ If the project directory contains `.obsidian`, Markdown export automatically cre
 | `--latest`, `-l` | Export the most recent session | — |
 | `--format {md,json}` | Markdown or lossless JSON | `md` |
 | `--full`, `-F` | Full Markdown output (no truncation; includes hidden step comments) | — |
+| `--sanitize` | Best-effort secret redaction (Markdown and JSON) | — |
 | `--force`, `-f` | Overwrite the file if it exists | — |
 | `--note`, `-n` | Description for log.md | — |
 | `--output`, `-o` | Output directory | `os.getcwd()` |
@@ -380,6 +383,7 @@ opencode-export-YYYYMMDD-HHMMSS/
 | `--all` | Export every session |
 | `--with-subagents` | Include child sessions (default for `--last`) |
 | `--no-subagents` | Do not include child sessions |
+| `--sanitize` | Redact high-confidence secrets in transcripts, index, and metadata |
 
 ### `digest` — compaction summaries
 
@@ -407,6 +411,8 @@ Removes sessions and all related data (messages, parts, todos). Supports single 
 opencode-db delete ses_1c9d                              # single session with confirmation
 opencode-db delete ses_1c9d --force                      # single session, no confirmation
 opencode-db delete ses_1c9d --dry-run                    # preview what would be deleted
+opencode-db delete ses_1c9d --with-children              # session + all descendants
+opencode-db delete ses_1c9d --with-children --dry-run    # preview the whole tree
 opencode-db delete --older-than 90d                      # sessions older than 90 days
 opencode-db delete --older-than 6m --dry-run             # preview sessions older than 6 months
 opencode-db delete --keep-last 30                        # keep 30 most recent, delete the rest
@@ -416,6 +422,7 @@ opencode-db delete --project proj_xxx                    # sessions in a specifi
 opencode-db delete --older-than 90d --keep-last 20       # combined filters
 opencode-db delete --interactive                         # choose from a list interactively
 opencode-db prune --missing-directories                  # preview sessions from missing paths
+opencode-db prune --missing-directories --with-children  # include descendants too
 ```
 
 | Flag | Description |
@@ -427,6 +434,7 @@ opencode-db prune --missing-directories                  # preview sessions from
 | `--keep-last` | Keep N most recent, delete the rest |
 | `--project` | Limit to a specific project |
 | `--dry-run` | Only show what would be deleted |
+| `--with-children` | Include all descendant sessions (single delete / missing-directories) |
 | `--force`, `-f` | Skip confirmation prompt |
 | `--interactive` | Pick sessions from a list |
 | `--missing-directories` | Sessions whose directory no longer exists (preview by default) |
@@ -588,6 +596,8 @@ Before anything is deleted, all of these gates must pass:
 8. All deletes run in one transaction; on error the transaction is rolled back.
 
 `--force` does **not** bypass any of these gates. It is ignored in this mode.
+
+With `--with-children`, the candidate set is expanded through all descendants. The preview shows the number of child sessions and explicitly lists children whose own directory still exists, because they will be deleted too. The confirmation phrase uses the expanded total. `--with-children` is accepted only for a single `session_id` or `--missing-directories`; bulk filters and `--interactive` remain unchanged.
 
 #### What exactly is deleted
 
@@ -946,7 +956,7 @@ opencode-db/
 │   ├── config.py                         ← constants and paths
 │   ├── db.py                             ← SQLite queries
 │   ├── formatters.py                     ← tables, JSON, Markdown, snapshots
-│   ├── i18n.py                           ← localization (EN/RU, 515 keys)
+│   ├── i18n.py                           ← localization (EN/RU, 526 keys)
 │   ├── backups.py                        ← managed snapshots, manifest, verify
 │   ├── maintenance.py                    ← backup, integrity, WAL, lock checks
 │   ├── markdown_to_ansi.py               ← Markdown → ANSI renderer for `view`
@@ -1101,7 +1111,7 @@ opencode-db --lang en help        # English help text
 opencode-db --lang en stats       # English statistics
 ```
 
-The `--lang` flag applies to any command. All 515 UI strings are translated. Data content (session titles, project names, etc.) remains in its original language.
+The `--lang` flag applies to any command. All 526 UI strings are translated. Data content (session titles, project names, etc.) remains in its original language.
 
 The language can also be set via environment variable `OPENCODE_DB_LANG=en`.
 
@@ -1200,7 +1210,7 @@ source .venv/bin/activate
 uv pip install -e ".[rich]"
 uv pip install pytest ruff==0.17.1
 
-make check          # check-python + ruff + 291 tests
+make check          # check-python + ruff + 309 tests
 ```
 
 `make check` fails fast with a clear message if the active interpreter is older than 3.12.

@@ -13,6 +13,7 @@ _PRUNE_EXAMPLES = [
     ("--force", "help.prune.e3"),
     ("--missing-directories", "help.prune.e4"),
     ("--missing-directories --execute", "help.prune.e5"),
+    ("--missing-directories --with-children", "help.prune.e6"),
 ]
 
 
@@ -34,6 +35,11 @@ def register(subparsers) -> None:
         help="Sessions whose directory no longer exists (preview by default)",
     )
     p.add_argument("--execute", action="store_true", help="Execute missing-directory cleanup")
+    p.add_argument(
+        "--with-children",
+        action="store_true",
+        help="Include all descendant sessions",
+    )
     p.add_argument("--backup", action="store_true", help="Create a DB backup before deletion")
     p.add_argument("--no-backup", action="store_true", help="Skip the DB backup")
 
