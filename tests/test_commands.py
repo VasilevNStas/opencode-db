@@ -126,6 +126,82 @@ class TestListCommand:
         assert run(args, db) == 0
 
 
+    def test_list_root_includes_orphan(self, db, capsys) -> None:
+        from opencode_db.commands.cmd_list import run
+
+        db.execute(
+            "INSERT INTO session (id, title, time_created, time_updated, parent_id) "
+            "VALUES (?, ?, ?, ?, ?)",
+            ("ses_orphan", "Orphan", 1, 1, "ses_missing"),
+        )
+        db.commit()
+        args = _ns(
+            limit=25,
+            offset=0,
+            project=None,
+            agent=None,
+            model=None,
+            sort="date",
+            json=True,
+            all=True,
+            root=True,
+            sub=False,
+            parent=None,
+        )
+        assert run(args, db) == 0
+        data = json.loads(capsys.readouterr().out)
+        ids = {item["id"] for item in data}
+        assert "ses_001" in ids
+        assert "ses_orphan" in ids
+        assert "ses_002" not in ids
+
+    def test_list_sub_and_parent(self, db, capsys) -> None:
+        from opencode_db.commands.cmd_list import run
+
+        args = _ns(
+            limit=25,
+            offset=0,
+            project=None,
+            agent=None,
+            model=None,
+            sort="date",
+            json=True,
+            all=True,
+            root=False,
+            sub=True,
+            parent=None,
+        )
+        assert run(args, db) == 0
+        data = json.loads(capsys.readouterr().out)
+        assert [item["id"] for item in data] == ["ses_002"]
+        assert data[0]["parent_id"] == "ses_001"
+
+        args.parent = "ses_001"
+        args.sub = False
+        assert run(args, db) == 0
+        data = json.loads(capsys.readouterr().out)
+        assert [item["id"] for item in data] == ["ses_002"]
+
+    def test_list_parent_conflicts_with_scope(self, db, capsys) -> None:
+        from opencode_db.commands.cmd_list import run
+
+        args = _ns(
+            limit=25,
+            offset=0,
+            project=None,
+            agent=None,
+            model=None,
+            sort="date",
+            json=True,
+            all=False,
+            root=True,
+            sub=False,
+            parent="ses_001",
+        )
+        assert run(args, db) == 1
+        assert "parent" in capsys.readouterr().out
+
+
 class TestInfoCommand:
     def test_info_by_id(self, db) -> None:
         from opencode_db.commands.cmd_info import run

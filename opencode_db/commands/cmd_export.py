@@ -9,13 +9,15 @@
 import argparse
 import json
 import os
+import re
+import shutil
 from datetime import UTC, datetime
 
 from ..db import SessionError
 from ..formatters import collect_snapshot, format_part_to_md, update_log
 from ..i18n import _
 from ..store import open_store
-from ..utils import build_help_epilog, format_cost, format_ts
+from ..utils import build_help_epilog, format_cost, format_ts, parse_date
 from ..version import get_version
 
 _EXPORT_EXAMPLES = [
@@ -26,6 +28,12 @@ _EXPORT_EXAMPLES = [
     ("--force", "help.export.e4"),
     ('--note "text"', "help.export.e5"),
     ("--format json", "help.export.e6"),
+    ("--last 5", "help.export.e7"),
+    ("--since 2026-01-01", "help.export.e8"),
+    ("--project proj_xxx", "help.export.e9"),
+    ("--all", "help.export.e10"),
+    ("--with-subagents", "help.export.e11"),
+    ("--no-subagents", "help.export.e12"),
 ]
 
 
@@ -42,6 +50,14 @@ def register(subparsers) -> None:
         help="Session ID (optional — interactive mode if omitted)",
     )
     p.add_argument("--latest", "-l", action="store_true", help="Export the most recent session")
+    selection = p.add_mutually_exclusive_group()
+    selection.add_argument("--last", type=int, help="Export the N most recent root sessions")
+    selection.add_argument("--since", type=str, help="Export sessions created since YYYY-MM-DD")
+    selection.add_argument("--project", type=str, help="Export all sessions in a project")
+    selection.add_argument("--all", action="store_true", help="Export all sessions")
+    cascade = p.add_mutually_exclusive_group()
+    cascade.add_argument("--with-subagents", action="store_true", help="Include child sessions")
+    cascade.add_argument("--no-subagents", action="store_true", help="Do not include child sessions")
     p.add_argument(
         "--full",
         "-F",
@@ -150,16 +166,26 @@ def _do_export(
     note,
     full=False,
     fmt="md",
+    filename_override=None,
+    quiet=False,
+    update_obsidian=True,
 ) -> int:
     """Внутренняя функция: экспорт диалога."""
     if fmt == "json":
-        return _do_export_json(store, session_info, output_dir, force)
+        return _do_export_json(
+            store,
+            session_info,
+            output_dir,
+            force,
+            filename_override=filename_override,
+            quiet=quiet,
+        )
 
     title = store.get_session_title(session_info)
     model = store.parse_model(session_info)
 
     messages = store.get_messages(session_info["id"])
-    filename = _export_filename(session_info, output_dir, "md")
+    filename = filename_override or _export_filename(session_info, output_dir, "md")
 
     if os.path.isfile(filename) and not force:
         print(_("export.exists", path=filename))
@@ -213,10 +239,13 @@ def _do_export(
     with open(filename, "w", encoding="utf-8") as f:
         f.write(content)
 
-    print(_("export.saved", path=filename))
-    print(_("export.messages", n=len(messages)))
+    if not quiet:
+        print(_("export.saved", path=filename))
+        print(_("export.messages", n=len(messages)))
 
     obsidian_dir = os.getcwd()
+    if not update_obsidian:
+        return 0
     if os.path.isdir(os.path.join(obsidian_dir, ".obsidian")):
         snapshot = collect_snapshot(obsidian_dir)
         now_str = format_ts(session_info["time_created"], "%Y-%m-%d %H:%M")
@@ -227,8 +256,15 @@ def _do_export(
     return 0
 
 
-def _do_export_json(store, session_info, output_dir, force) -> int:
-    filename = _export_filename(session_info, output_dir, "json")
+def _do_export_json(
+    store,
+    session_info,
+    output_dir,
+    force,
+    filename_override=None,
+    quiet=False,
+) -> int:
+    filename = filename_override or _export_filename(session_info, output_dir, "json")
     if os.path.isfile(filename) and not force:
         print(_("export.exists", path=filename))
         print(_("export.exists_hint"))
@@ -274,21 +310,319 @@ def _do_export_json(store, session_info, output_dir, force) -> int:
             os.remove(filename)
         raise
 
-    print(_("export.saved", path=filename))
-    print(_("export.messages", n=count))
+    if not quiet:
+        print(_("export.saved", path=filename))
+        print(_("export.messages", n=count))
+    return 0
+
+
+def _slug_title(title: str, limit: int = 40) -> str:
+    slug = re.sub(r"[^\w.-]+", "-", title, flags=re.UNICODE).strip("-._")
+    return (slug or "session")[:limit]
+
+
+def _bulk_requested(args) -> bool:
+    return bool(
+        args.last is not None
+        or args.since
+        or args.project
+        or args.all
+    )
+
+
+def _selection_error(args) -> str | None:
+    if args.session_id and _bulk_requested(args):
+        return _("export.selection_conflict")
+    if args.latest and _bulk_requested(args):
+        return _("export.selection_conflict")
+    if args.last is not None and args.last < 1:
+        return _("export.invalid_last")
+    if args.since and parse_date(args.since) is None:
+        return _("export.invalid_since")
+    if (
+        not (args.session_id or args.latest or _bulk_requested(args))
+        and (args.with_subagents or args.no_subagents)
+    ):
+        return _("export.selection_required")
+    return None
+
+
+def _bundle_dir(output_dir: str) -> str:
+    base = datetime.now(UTC).strftime("opencode-export-%Y%m%d-%H%M%S")
+    path = os.path.join(output_dir, base)
+    counter = 1
+    while os.path.exists(path):
+        path = os.path.join(output_dir, f"{base}-{counter}")
+        counter += 1
+    return path
+
+
+def _write_bundle_index(bundle: str, records, rule: str, value, fmt: str) -> None:
+    lines = [
+        f"# {_('export.bundle_title')}",
+        "",
+        f"- {_('export.bundle_rule')}: `{rule}`",
+        f"- {_('export.bundle_value')}: `{value}`",
+        f"- {_('export.bundle_format')}: `{fmt}`",
+        f"- {_('export.bundle_total')}: {len(records)}",
+        "",
+        f"## {_('export.bundle_sessions')}",
+        "",
+    ]
+    for record in records:
+        title = str(record["title"]).replace("[", "\\[").replace("]", "\\]")
+        indent = "" if record["role"] == "root" else "  "
+        lines.append(
+            f"{indent}- [{title}]({record['file']}) — `{record['id'][:12]}` "
+            f"({record['messages']} {_('export.bundle_msgs')})"
+        )
+    with open(os.path.join(bundle, "index.md"), "w", encoding="utf-8") as handle:
+        handle.write("\n".join(lines) + "\n")
+
+
+def _run_bulk(
+    store,
+    args,
+    output_dir: str,
+    full: bool,
+    fmt: str,
+    roots: list[str],
+    rule: str,
+    value,
+    with_subagents: bool,
+) -> int:
+    selected = []
+    seen = set()
+    for root in roots:
+        if root not in seen:
+            selected.append(root)
+            seen.add(root)
+        if not with_subagents:
+            continue
+        children = []
+        for child in store.get_descendant_ids(root):
+            if child in seen:
+                continue
+            brief = store.get_session_brief(child)
+            if brief:
+                children.append((brief.get("time_created") or 0, child))
+        for _ts, child in sorted(children):
+            if child not in seen:
+                selected.append(child)
+                seen.add(child)
+
+    if not selected:
+        print(_("export.no_matches"))
+        return 1
+
+    selected_set = set(selected)
+    records = []
+    for session_id in selected:
+        brief = store.get_session_brief(session_id)
+        if not brief:
+            continue
+        parent_id = brief.get("parent_id")
+        role = "subagent" if parent_id in selected_set else "root"
+        records.append(
+            {
+                "id": session_id,
+                "title": brief.get("title") or _("info.unnamed"),
+                "parent_id": parent_id,
+                "role": role,
+                "time_created": brief.get("time_created"),
+                "messages": store.get_message_count(session_id),
+                "file": "",
+            }
+        )
+
+    if not records:
+        print(_("export.no_matches"))
+        return 1
+
+    bundle = _bundle_dir(output_dir)
+    try:
+        os.makedirs(os.path.join(bundle, "transcript"), exist_ok=True)
+        counters = {"root": 0, "subagent": 0}
+        for record in records:
+            counters[record["role"]] += 1
+            folder = "transcript" if record["role"] == "root" else "transcript/subagents"
+            os.makedirs(os.path.join(bundle, *folder.split("/")), exist_ok=True)
+            filename = (
+                f"{counters[record['role']]:02d}-"
+                f"{_slug_title(record['title'])}-{record['id'][:12]}.{fmt}"
+            )
+            relative = f"{folder}/{filename}"
+            record["file"] = relative
+            session_info = store.get_session_info(record["id"])
+            code = _do_export(
+                store,
+                session_info,
+                os.path.join(bundle, *folder.split("/")),
+                True,
+                None,
+                full,
+                fmt,
+                filename_override=os.path.join(bundle, *relative.split("/")),
+                quiet=True,
+                update_obsidian=False,
+            )
+            if code != 0:
+                raise RuntimeError(f"export failed for {record['id']}")
+
+        metadata = {
+            "format": "opencode-db-export-bundle",
+            "schema_version": 1,
+            "tool_version": get_version(),
+            "db_schema": store.schema.family.value,
+            "exported_at": datetime.now(UTC)
+            .replace(microsecond=0)
+            .isoformat()
+            .replace("+00:00", "Z"),
+            "selection": {
+                "rule": rule,
+                "value": value,
+                "with_subagents": with_subagents,
+                "format": fmt,
+            },
+            "counts": {
+                "roots": sum(1 for record in records if record["role"] == "root"),
+                "subagents": sum(1 for record in records if record["role"] == "subagent"),
+                "total": len(records),
+            },
+            "sessions": records,
+        }
+        with open(os.path.join(bundle, "metadata.json"), "w", encoding="utf-8") as handle:
+            json.dump(metadata, handle, ensure_ascii=False, indent=2, default=str)
+            handle.write("\n")
+        _write_bundle_index(bundle, records, rule, value, fmt)
+    except Exception:
+        shutil.rmtree(bundle, ignore_errors=True)
+        raise
+
+    print(_("export.bundle_saved", path=bundle))
+    print(
+        _(
+            "export.bundle_counts",
+            roots=metadata["counts"]["roots"],
+            subagents=metadata["counts"]["subagents"],
+            total=metadata["counts"]["total"],
+        )
+    )
     return 0
 
 
 def run(args, db) -> int:
+    for name, default in (
+        ("last", None),
+        ("since", None),
+        ("project", None),
+        ("all", False),
+        ("with_subagents", False),
+        ("no_subagents", False),
+    ):
+        if not hasattr(args, name):
+            setattr(args, name, default)
     output_dir = args.output or os.getcwd()
     full = args.full
     fmt = getattr(args, "format", "md")
 
+    error = _selection_error(args)
+    if error:
+        print(error)
+        return 1
+
     store = open_store(db)
     if args.session_id:
-        return _export_by_id(store, args.session_id, output_dir, args.force, args.note, full, fmt)
+        try:
+            session_info = store.get_session_info(args.session_id)
+        except SessionError as exc:
+            print(exc.message)
+            return 1
+        if args.with_subagents:
+            return _run_bulk(
+                store,
+                args,
+                output_dir,
+                full,
+                fmt,
+                [session_info["id"]],
+                "session",
+                session_info["id"],
+                True,
+            )
+        return _do_export(store, session_info, output_dir, args.force, args.note, full, fmt)
 
     if args.latest:
-        return _export_latest(store, output_dir, args.force, args.note, full, fmt)
+        try:
+            session_info = store.get_session_info(store.get_latest_session())
+        except SessionError as exc:
+            print(exc.message)
+            return 1
+        print(_("session.latest", title=store.get_session_title(session_info)))
+        if args.with_subagents:
+            return _run_bulk(
+                store,
+                args,
+                output_dir,
+                full,
+                fmt,
+                [session_info["id"]],
+                "latest",
+                session_info["id"],
+                True,
+            )
+        return _do_export(store, session_info, output_dir, args.force, args.note, full, fmt)
+
+    if _bulk_requested(args):
+        if args.last is not None:
+            return _run_bulk(
+                store,
+                args,
+                output_dir,
+                full,
+                fmt,
+                store.get_root_session_ids(args.last),
+                "last",
+                args.last,
+                not args.no_subagents,
+            )
+        if args.since:
+            since = parse_date(args.since)
+            assert since is not None
+            return _run_bulk(
+                store,
+                args,
+                output_dir,
+                full,
+                fmt,
+                store.get_session_ids_since(int(since.timestamp() * 1000)),
+                "since",
+                args.since,
+                args.with_subagents,
+            )
+        if args.project:
+            return _run_bulk(
+                store,
+                args,
+                output_dir,
+                full,
+                fmt,
+                store.get_session_ids_by_project(args.project),
+                "project",
+                args.project,
+                args.with_subagents,
+            )
+        if args.all:
+            return _run_bulk(
+                store,
+                args,
+                output_dir,
+                full,
+                fmt,
+                store.get_all_session_ids(),
+                "all",
+                True,
+                args.with_subagents,
+            )
 
     return _export_interactive(store, output_dir, args.force, args.note, full, fmt)

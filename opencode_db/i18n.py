@@ -98,6 +98,10 @@ L: dict[str, dict[str, str]] = {
     "list.header.activity": {"ru": "Активность", "en": "Activity"},
     "list.header.messages": {"ru": "Сообщ.", "en": "Msgs"},
     "list.header.cost": {"ru": "Стоимость", "en": "Cost"},
+    "list.scope_conflict": {
+        "ru": "❌ --parent нельзя сочетать с --root/--sub",
+        "en": "❌ --parent cannot be combined with --root/--sub",
+    },
     # ==================================================================
     # INFO
     # ==================================================================
@@ -141,6 +145,35 @@ L: dict[str, dict[str, str]] = {
     # ==================================================================
     "export.saved": {"ru": "✅ Диалог сохранён: {path}", "en": "✅ Dialog saved: {path}"},
     "export.messages": {"ru": "   Сообщений: {n}", "en": "   Messages: {n}"},
+    "export.selection_conflict": {
+        "ru": "❌ Выберите один режим: session_id, --latest, --last, --since, --project или --all",
+        "en": "❌ Choose one selection mode: session_id, --latest, --last, --since, --project, or --all",
+    },
+    "export.invalid_last": {"ru": "❌ --last должен быть >= 1", "en": "❌ --last must be at least 1"},
+    "export.invalid_since": {
+        "ru": "❌ --since ожидает дату ГГГГ-ММ-ДД",
+        "en": "❌ --since expects YYYY-MM-DD",
+    },
+    "export.selection_required": {
+        "ru": "❌ --with-subagents/--no-subagents требует явного выбора сессии",
+        "en": "❌ --with-subagents/--no-subagents requires an explicit session selection",
+    },
+    "export.no_matches": {
+        "ru": "❌ Под выбранное правило не попала ни одна сессия.",
+        "en": "❌ No sessions matched the selection rule.",
+    },
+    "export.bundle_title": {"ru": "Экспорт OpenCode", "en": "OpenCode export"},
+    "export.bundle_rule": {"ru": "Правило", "en": "Selection"},
+    "export.bundle_value": {"ru": "Значение", "en": "Value"},
+    "export.bundle_format": {"ru": "Формат", "en": "Format"},
+    "export.bundle_total": {"ru": "Всего сессий", "en": "Total sessions"},
+    "export.bundle_sessions": {"ru": "Сессии", "en": "Sessions"},
+    "export.bundle_msgs": {"ru": "сообщений", "en": "messages"},
+    "export.bundle_saved": {"ru": "✅ Bundle сохранён: {path}", "en": "✅ Bundle saved: {path}"},
+    "export.bundle_counts": {
+        "ru": "   Roots: {roots}, subagents: {subagents}, всего: {total}",
+        "en": "   Roots: {roots}, subagents: {subagents}, total: {total}",
+    },
     "export.exists": {
         "ru": "❌ Файл уже существует: {path}",
         "en": "❌ File already exists: {path}",
@@ -857,6 +890,12 @@ L: dict[str, dict[str, str]] = {
     "help.export.e4": {"ru": "Перезаписать существующий файл", "en": "Overwrite existing file"},
     "help.export.e5": {"ru": "Добавить заметку в log.md", "en": "Add a note to log.md"},
     "help.export.e6": {"ru": "Lossless JSON-экспорт", "en": "Lossless JSON export"},
+    "help.export.e7": {"ru": "Последние 5 root-сессий + subagents", "en": "Last 5 roots + subagents"},
+    "help.export.e8": {"ru": "Сессии, созданные с даты", "en": "Sessions created since a date"},
+    "help.export.e9": {"ru": "Все сессии проекта", "en": "All sessions in a project"},
+    "help.export.e10": {"ru": "Все сессии", "en": "All sessions"},
+    "help.export.e11": {"ru": "Включить дочерние сессии", "en": "Include child sessions"},
+    "help.export.e12": {"ru": "Без дочерних сессий", "en": "Exclude child sessions"},
     "help.cmd.digest": {"ru": "Compaction-сводки сессии", "en": "Session compaction digests"},
     "help.digest.e0": {"ru": "Все compaction-сводки", "en": "All compaction digests"},
     "help.digest.e1": {"ru": "Последние 3 сводки", "en": "Last 3 digests"},

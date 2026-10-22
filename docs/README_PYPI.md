@@ -27,6 +27,7 @@ opencode-db schema       # detect v1/v2 schema
 opencode-db costs --total  # total token costs
 opencode-db export       # export dialog to Markdown (interactive)
 opencode-db export --format json  # lossless JSON archive
+opencode-db export --last 5  # bulk bundle: roots + subagents
 opencode-db digest <id>  # compaction summaries
 opencode-db help         # full reference
 ```
@@ -37,6 +38,7 @@ opencode-db help         # full reference
 - **`list`** / **`info`** / **`search`** / **`tree`** — browse and search sessions
 - **`directories`** (`dirs`) — every launch directory, including missing ones; `list --directory` adds the path to each session
 - **`export`** — Markdown or lossless JSON; preserves `patch`, `file`, `compaction`, `step-*`, and unknown part types; unique `opencode-<date>-<short_id>` filenames
+- **`export --last/--since/--project/--all`** — bulk bundles with `index.md`, `metadata.json`, root transcripts, and `subagents/`; `--with-subagents`/`--no-subagents` controls cascade
 - **`digest`** — compaction summaries for v1 and v2 sessions, with `--last N` and `--json`
 - **`delete`** / **`prune`** — single and bulk cleanup; `prune --missing-directories` is preview-first and guarded
 - **`costs`** / **`stats`** — token and cost analytics
@@ -53,6 +55,7 @@ opencode-db help         # full reference
 - **`list`** / **`info`** / **`search`** / **`tree`** — навигация и поиск по сессиям
 - **`directories`** (`dirs`) — все директории запусков, включая отсутствующие; `list --directory` добавляет путь к сессии
 - **`export`** — Markdown или lossless JSON; сохраняет `patch`, `file`, `compaction`, `step-*` и неизвестные типы частей; уникальные имена `opencode-<date>-<short_id>`
+- **`export --last/--since/--project/--all`** — массовые bundles с `index.md`, `metadata.json`, transcript'ами root и `subagents/`; `--with-subagents`/`--no-subagents` управляет cascade
 - **`digest`** — compaction-сводки для v1 и v2, с `--last N` и `--json`
 - **`delete`** / **`prune`** — удаление и массовая очистка; `prune --missing-directories` работает через preview и guard'ы
 - **`costs`** / **`stats`** — аналитика токенов и расходов

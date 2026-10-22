@@ -480,3 +480,62 @@ def test_v2_lossless_export_and_digest(v2db, tmp_path, capsys) -> None:
     digest = json.loads(capsys.readouterr().out)
     assert digest["count"] == 1
     assert digest["digests"][0]["text"] == "V2 compacted summary"
+
+
+def test_v2_list_session_scope(v2db) -> None:
+    store = open_store(v2db)
+    v2db.execute(
+        "INSERT INTO session_v2 (id, title, time_created, time_updated, parent_id) "
+        "VALUES (?, ?, ?, ?, ?)",
+        ("ses_v2_child", "Child", TS + 10, TS + 10, "ses_v2"),
+    )
+    v2db.execute(
+        "INSERT INTO session_v2 (id, title, time_created, time_updated, parent_id) "
+        "VALUES (?, ?, ?, ?, ?)",
+        ("ses_v2_orphan", "Orphan", TS + 11, TS + 11, "missing"),
+    )
+    v2db.commit()
+
+    roots = store.list_sessions(root_only=True, limit=10)
+    root_ids = {row["id"] for row in roots}
+    assert root_ids == {"ses_v2", "ses_v2_orphan"}
+
+    subs = store.list_sessions(sub_only=True, limit=10)
+    assert [row["id"] for row in subs] == ["ses_v2_child"]
+    assert subs[0]["parent_id"] == "ses_v2"
+
+    children = store.list_sessions(parent_id="ses_v2", limit=10)
+    assert [row["id"] for row in children] == ["ses_v2_child"]
+
+
+def test_v2_bulk_export_with_subagents(v2db, tmp_path) -> None:
+    from opencode_db.commands.cmd_export import run
+
+    v2db.execute(
+        "INSERT INTO session_v2 (id, title, time_created, time_updated, parent_id) "
+        "VALUES (?, ?, ?, ?, ?)",
+        ("ses_v2_child", "Child", TS + 10, TS + 10, "ses_v2"),
+    )
+    v2db.commit()
+
+    args = _ns(
+        session_id=None,
+        latest=False,
+        last=1,
+        since=None,
+        project=None,
+        all=False,
+        with_subagents=False,
+        no_subagents=False,
+        full=False,
+        force=False,
+        note=None,
+        output=str(tmp_path),
+        format="json",
+    )
+    assert run(args, v2db) == 0
+    bundle = next(tmp_path.glob("opencode-export-*"))
+    metadata = json.loads((bundle / "metadata.json").read_text(encoding="utf-8"))
+    assert metadata["db_schema"] == "v2"
+    assert metadata["counts"] == {"roots": 1, "subagents": 1, "total": 2}
+    assert (bundle / "transcript" / "subagents").is_dir()

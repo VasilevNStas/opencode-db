@@ -430,12 +430,24 @@ class V2Store(BaseStore):
         sort: str = "date",
         limit: int = 25,
         offset: int = 0,
+        parent_id: str | None = None,
+        root_only: bool = False,
+        sub_only: bool = False,
     ):
         conditions = []
         params: list[Any] = []
         if project_id:
             conditions.append("s.project_id = ?")
             params.append(project_id)
+        if root_only:
+            conditions.append(
+                "(s.parent_id IS NULL OR s.parent_id NOT IN (SELECT id FROM session_v2))"
+            )
+        if sub_only:
+            conditions.append("s.parent_id IN (SELECT id FROM session_v2)")
+        if parent_id:
+            conditions.append("s.parent_id = ?")
+            params.append(parent_id)
         if agent:
             conditions.append("s.agent = ?")
             params.append(agent)
@@ -454,7 +466,7 @@ class V2Store(BaseStore):
         rows = self.conn.execute(
             f"""
             SELECT s.id, s.title, s.model, s.project_id, s.agent, s.directory,
-                   s.cost, s.tokens_input, s.tokens_output,
+                   s.parent_id, s.cost, s.tokens_input, s.tokens_output,
                    MAX(m.time_created) AS last_time,
                    COUNT(DISTINCT m.id) AS msg_count
             FROM session_v2 s

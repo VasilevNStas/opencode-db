@@ -221,10 +221,60 @@ class BaseStore:
 
     def get_session_brief(self, session_id: str) -> dict[str, Any] | None:
         row = self.conn.execute(
-            f"SELECT id, title, time_created, project_id FROM {self.session_table} WHERE id = ?",
+            f"SELECT id, title, time_created, project_id, parent_id "
+            f"FROM {self.session_table} WHERE id = ?",
             (session_id,),
         ).fetchone()
         return dict(row) if row else None
+
+    def get_root_session_ids(self, limit: int) -> list[str]:
+        rows = self.conn.execute(
+            f"""
+            SELECT id
+            FROM {self.session_table}
+            WHERE parent_id IS NULL
+               OR parent_id NOT IN (SELECT id FROM {self.session_table})
+            ORDER BY time_updated DESC, time_created DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        return [str(row[0]) for row in rows]
+
+    def get_session_ids_since(self, timestamp_ms: int) -> list[str]:
+        rows = self.conn.execute(
+            f"SELECT id FROM {self.session_table} WHERE time_created >= ? ORDER BY time_created",
+            (timestamp_ms,),
+        ).fetchall()
+        return [str(row[0]) for row in rows]
+
+    def get_session_ids_by_project(self, project_id: str) -> list[str]:
+        rows = self.conn.execute(
+            f"SELECT id FROM {self.session_table} WHERE project_id = ? ORDER BY time_created",
+            (project_id,),
+        ).fetchall()
+        return [str(row[0]) for row in rows]
+
+    def get_all_session_ids(self) -> list[str]:
+        rows = self.conn.execute(
+            f"SELECT id FROM {self.session_table} ORDER BY time_created"
+        ).fetchall()
+        return [str(row[0]) for row in rows]
+
+    def get_descendant_ids(self, session_id: str) -> list[str]:
+        rows = self.conn.execute(
+            f"""
+            WITH RECURSIVE descendants(id) AS (
+                SELECT id FROM {self.session_table} WHERE parent_id = ?
+                UNION
+                SELECT s.id FROM {self.session_table} s
+                JOIN descendants d ON s.parent_id = d.id
+            )
+            SELECT id FROM descendants
+            """,
+            (session_id,),
+        ).fetchall()
+        return [str(row[0]) for row in rows]
 
     # ------------------------------------------------------------------
     # Generic reporting queries
@@ -436,6 +486,9 @@ class BaseStore:
         sort: str = "date",
         limit: int = 25,
         offset: int = 0,
+        parent_id: str | None = None,
+        root_only: bool = False,
+        sub_only: bool = False,
     ):
         raise NotImplementedError
 

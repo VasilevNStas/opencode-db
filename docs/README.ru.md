@@ -180,6 +180,9 @@ opencode-db list --agent build           # фильтр по агенту
 opencode-db list --model deepseek        # фильтр по модели
 opencode-db list --json                  # вывод в JSON
 opencode-db list --all --directory       # показать директории
+opencode-db list --root                  # только root-сессии (orphans включены)
+opencode-db list --sub                   # только дочерние сессии
+opencode-db list --parent ses_1c9d       # дети одной сессии
 ```
 
 | Флаг | Описание | По умолчанию |
@@ -193,6 +196,9 @@ opencode-db list --all --directory       # показать директории
 | `--json` | Вывод в JSON | — |
 | `--all` | Показать все (без limit) | — |
 | `--directory` | Добавить колонку директории | — |
+| `--root` | Только root-сессии; orphan-дети считаются root | — |
+| `--sub` | Только сессии с существующим родителем | — |
+| `--parent ID` | Только дети этой сессии (префикс разрешён) | — |
 
 ---
 
@@ -296,7 +302,7 @@ JSON — lossless-формат архива:
 {
   "format": "opencode-db-export",
   "schema_version": 1,
-  "tool_version": "0.12.0",
+  "tool_version": "0.13.0",
   "db_schema": "v1",
   "exported_at": "2026-10-22T18:00:00Z",
   "session": { "...сырая строка session...": "..." },
@@ -325,6 +331,52 @@ JSON — lossless-формат архива:
 | `--force`, `-f` | Перезаписать существующий файл | — |
 | `--note`, `-n` | Описание сессии для log.md | — |
 | `--output`, `-o` | Директория для сохранения | `os.getcwd()` |
+
+### Массовый экспорт
+
+Экспорт набора сессий в bundle:
+
+```bash
+opencode-db export --last 5                   # 5 новейших root + все descendants
+opencode-db export --last 5 --no-subagents    # только root
+opencode-db export --since 2026-01-01         # сессии, созданные с даты
+opencode-db export --project proj_xxx         # все сессии проекта
+opencode-db export --all                      # все сессии
+opencode-db export --last 5 --format json     # lossless JSON bundle
+opencode-db export ses_1c9d --with-subagents  # один root + descendants в bundle
+```
+
+Правила:
+
+- за запуск выбирается ровно одно правило (`session_id`, `--latest`, `--last`, `--since`, `--project` или `--all`);
+- `--last N` считает root-сессии и по умолчанию включает descendants;
+- `--since` использует `session.time_created`; для descendants добавьте `--with-subagents`;
+- `--project` и `--all` включают совпавшие сессии; `--with-subagents` добавляет потомков;
+- сессия с отсутствующим родителем считается root;
+- пустая выборка — ошибка, а не пустой экспорт.
+
+Структура bundle:
+
+```text
+opencode-export-YYYYMMDD-HHMMSS/
+├── index.md                 # ссылки на все экспортированные сессии
+├── metadata.json            # выборка, счётчики, схема БД, записи сессий
+└── transcript/
+    ├── 01-<title>-<id>.md   # root-сессии
+    └── subagents/
+        └── 01-<title>-<id>.md
+```
+
+`metadata.json` хранит правило и значение выборки, количество root/subagent/total и для каждой сессии id, title, parent, роль, число сообщений и относительный файл. Bundle создаётся целиком: при ошибке записи частично созданная директория удаляется.
+
+| Флаг | Описание |
+|---|---|
+| `--last N` | Экспорт N новейших root-сессий и descendants |
+| `--since YYYY-MM-DD` | Сессии, созданные с даты |
+| `--project ID` | Все сессии проекта |
+| `--all` | Все сессии |
+| `--with-subagents` | Включить дочерние сессии (по умолчанию для `--last`) |
+| `--no-subagents` | Не включать дочерние сессии |
 
 ### `digest` — compaction-сводки
 
@@ -902,7 +954,7 @@ opencode-db/
 │   ├── config.py                         ← константы и пути
 │   ├── db.py                             ← запросы к SQLite
 │   ├── formatters.py                     ← таблицы, JSON, Markdown, snapshot
-│   ├── i18n.py                           ← локализация (EN/RU, 494 ключа)
+│   ├── i18n.py                           ← локализация (EN/RU, 515 ключей)
 │   ├── backups.py                        ← управляемые снимки, manifest, verify
 │   ├── maintenance.py                    ← backup, integrity, WAL, проверка блокировок
 │   ├── markdown_to_ansi.py               ← Markdown → ANSI для `view`
@@ -1057,7 +1109,7 @@ opencode-db --lang en help        # справка на английском
 opencode-db --lang en stats       # статистика на английском
 ```
 
-Флаг `--lang` работает с любой командой. Переведены все 494 строки интерфейса. Содержимое данных (названия сессий, проектов и т.д.) остаётся на языке оригинала.
+Флаг `--lang` работает с любой командой. Переведены все 515 строк интерфейса. Содержимое данных (названия сессий, проектов и т.д.) остаётся на языке оригинала.
 
 Язык также можно задать через переменную окружения `OPENCODE_DB_LANG=en`.
 
@@ -1147,7 +1199,7 @@ source .venv/bin/activate
 uv pip install -e ".[rich]"
 uv pip install pytest ruff==0.17.1
 
-make check          # check-python + ruff + 279 тестов
+make check          # check-python + ruff + 291 тест
 ```
 
 `make check` сразу завершается с понятной ошибкой, если активный интерпретатор старее 3.12.
