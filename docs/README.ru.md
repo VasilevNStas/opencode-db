@@ -152,6 +152,10 @@ opencode-db costs --total
 
 # Статистика по всей БД
 opencode-db stats
+
+# Управляемый backup базы
+opencode-db backup
+opencode-db backups list
 ```
 
 ---
@@ -332,6 +336,52 @@ opencode-db prune --missing-directories                  # preview сессий 
 | `--no-backup` | Явно пропустить backup |
 
 ---
+
+### `backup` — управляемые снимки базы
+
+Создаёт консистентный снимок через SQLite backup API (не `cp`), проверяет его через `quick_check` и записывает в manifest. По умолчанию снимок сжимается gzip.
+
+```bash
+opencode-db backup                         # gzip-снимок в управляемом каталоге
+opencode-db backup --dry-run               # показать план, ничего не писать
+opencode-db backup --output ~/backups      # свой каталог
+opencode-db backup --no-compress           # обычный .db
+```
+
+Каталог по умолчанию: `~/.local/share/opencode-db/backups` (переопределяется `OPENCODE_DB_BACKUP_DIR` или `--output`).
+
+Manifest хранит имя файла, дату UTC, sha256, размер raw/stored, семейство схемы, количество сессий/сообщений/частей, `max(time_updated)`, путь-источник и версию инструмента.
+
+Это отдельный механизм от автоматических sidecar-копий `opencode.db.bak.YYYYMMDD-HHMMSS`, которые создают `delete` и `vacuum`.
+
+### `backups` — просмотр и управление снимками
+
+```bash
+opencode-db backups list                   # все управляемые снимки
+opencode-db backups list --json
+opencode-db backups list --dir ~/backups
+opencode-db backups view <file>            # детали + проверка sha256
+opencode-db backups view <file> --json
+opencode-db backups verify <file>          # sha256 + quick_check
+opencode-db backups remove <file>          # с подтверждением
+opencode-db backups prune 5                # оставить 5 новейших
+```
+
+`view` проверяет сохранённый sha256. `verify` дополнительно распаковывает снимок при необходимости и запускает `quick_check`. `remove` и `prune` удаляют только файлы, записанные в manifest.
+
+### `--from-backup` — чтение из снимка
+
+Любая read-only команда может работать не с живой БД, а с управляемым снимком:
+
+```bash
+opencode-db --from-backup <file> list
+opencode-db --from-backup <file> health
+opencode-db --from-backup <file> export ses_1c9d
+```
+
+Можно передать имя из manifest или прямой путь, `.db` или `.db.gz`. Для файла из manifest проверяется sha256; gzip распаковывается во временный файл, который удаляется при выходе. База открывается read-only, а `delete`, `prune` и `vacuum` отклоняются.
+
+`--from-backup` и `--db-path` взаимоисключающие.
 
 ### `costs` — анализ расходов на токены
 
@@ -646,6 +696,8 @@ opencode-db health --json                 # стабильный JSON
 
 Ненулевой freelist означает, что после удалений в файле остались свободные страницы. `VACUUM` может вернуть это место файловой системе. Если freelist уже равен нулю, возвращать обычно почти нечего.
 
+Отчёт также сравнивает самый новый управляемый backup с живой БД и помечает его как `aligned` или `out of sync`. `out of sync` означает только, что живая БД изменилась после снимка; это не значит, что backup повреждён — для проверки целостности используйте `backups verify`.
+
 ---
 
 ### `todos` — просмотр задач из сессий
@@ -806,7 +858,8 @@ opencode-db/
 │   ├── config.py                         ← константы и пути
 │   ├── db.py                             ← запросы к SQLite
 │   ├── formatters.py                     ← таблицы, JSON, Markdown, snapshot
-│   ├── i18n.py                           ← локализация (EN/RU, 405 ключей)
+│   ├── i18n.py                           ← локализация (EN/RU, 478 ключей)
+│   ├── backups.py                        ← управляемые снимки, manifest, verify
 │   ├── maintenance.py                    ← backup, integrity, WAL, проверка блокировок
 │   ├── markdown_to_ansi.py               ← Markdown → ANSI для `view`
 │   ├── runtime.py                        ← проверка Python 3.12+
@@ -823,6 +876,8 @@ opencode-db/
 │       ├── cmd_tree.py                   ← opencode-db tree
 │       ├── cmd_projects.py               ← opencode-db projects
 │       ├── cmd_stats.py                  ← opencode-db stats
+│       ├── cmd_backup.py                 ← opencode-db backup
+│       ├── cmd_backups.py                ← opencode-db backups
 │       ├── cmd_health.py                 ← opencode-db health
 │       ├── cmd_todos.py                  ← opencode-db todos
 │       ├── cmd_vacuum.py                 ← opencode-db vacuum
@@ -957,7 +1012,7 @@ opencode-db --lang en help        # справка на английском
 opencode-db --lang en stats       # статистика на английском
 ```
 
-Флаг `--lang` работает с любой командой. Переведены все 405 строк интерфейса. Содержимое данных (названия сессий, проектов и т.д.) остаётся на языке оригинала.
+Флаг `--lang` работает с любой командой. Переведены все 478 строк интерфейса. Содержимое данных (названия сессий, проектов и т.д.) остаётся на языке оригинала.
 
 Язык также можно задать через переменную окружения `OPENCODE_DB_LANG=en`.
 
@@ -1047,7 +1102,7 @@ source .venv/bin/activate
 uv pip install -e ".[rich]"
 uv pip install pytest ruff==0.17.1
 
-make check          # check-python + ruff + 254 теста
+make check          # check-python + ruff + 272 теста
 ```
 
 `make check` сразу завершается с понятной ошибкой, если активный интерпретатор старее 3.12.

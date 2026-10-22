@@ -155,6 +155,10 @@ opencode-db costs --total
 
 # Database statistics
 opencode-db stats
+
+# Managed database snapshot
+opencode-db backup
+opencode-db backups list
 ```
 
 ---
@@ -334,6 +338,52 @@ opencode-db prune --missing-directories                  # preview sessions from
 | `--no-backup` | Explicitly skip the DB backup |
 
 ---
+
+### `backup` — managed database snapshots
+
+Creates a consistent SQLite snapshot through the SQLite backup API (not `cp`), verifies it with `quick_check`, and records it in a manifest. Snapshots are gzip-compressed by default.
+
+```bash
+opencode-db backup                         # gzip snapshot in the managed directory
+opencode-db backup --dry-run               # show the plan, write nothing
+opencode-db backup --output ~/backups      # custom directory
+opencode-db backup --no-compress           # plain .db snapshot
+```
+
+Default directory: `~/.local/share/opencode-db/backups` (override with `OPENCODE_DB_BACKUP_DIR` or `--output`).
+
+The manifest stores the file name, UTC date, sha256, raw/stored size, schema family, session/message/part counts, `max(time_updated)`, source path and tool version.
+
+This is separate from the automatic sidecar `opencode.db.bak.YYYYMMDD-HHMMSS` copies created by `delete` and `vacuum`.
+
+### `backups` — inspect and manage snapshots
+
+```bash
+opencode-db backups list                   # all managed snapshots
+opencode-db backups list --json
+opencode-db backups list --dir ~/backups
+opencode-db backups view <file>            # details + sha256 check
+opencode-db backups view <file> --json
+opencode-db backups verify <file>          # sha256 + quick_check
+opencode-db backups remove <file>          # with confirmation
+opencode-db backups prune 5                # keep the 5 newest
+```
+
+`view` checks the stored sha256. `verify` also decompresses the snapshot when needed and runs `quick_check`. `remove` and `prune` delete only files recorded in the manifest.
+
+### `--from-backup` — read a snapshot
+
+Every read-only command can use a managed snapshot instead of the live database:
+
+```bash
+opencode-db --from-backup <file> list
+opencode-db --from-backup <file> health
+opencode-db --from-backup <file> export ses_1c9d
+```
+
+The file may be a manifest alias or a direct path, plain `.db` or `.db.gz`. The sha256 is verified when the file is in the manifest; gzip snapshots are extracted to a temporary file that is removed on exit. The database is opened read-only, and `delete`, `prune` and `vacuum` are refused.
+
+`--from-backup` and `--db-path` are mutually exclusive.
 
 ### `costs` — token cost analysis
 
@@ -637,6 +687,8 @@ The report includes:
 
 A non-zero freelist means the file contains free pages left after deletes. `VACUUM` can return that space to the filesystem. If the freelist is already zero, there is usually little to reclaim.
 
+The report also compares the newest managed backup with the live database and marks it as `aligned` or `out of sync`. `out of sync` only means the live database changed after the snapshot; it does not mean the backup is corrupt — use `backups verify` for integrity.
+
 ---
 
 ### `todos` — view tasks from sessions
@@ -797,7 +849,8 @@ opencode-db/
 │   ├── config.py                         ← constants and paths
 │   ├── db.py                             ← SQLite queries
 │   ├── formatters.py                     ← tables, JSON, Markdown, snapshots
-│   ├── i18n.py                           ← localization (EN/RU, 405 keys)
+│   ├── i18n.py                           ← localization (EN/RU, 478 keys)
+│   ├── backups.py                        ← managed snapshots, manifest, verify
 │   ├── maintenance.py                    ← backup, integrity, WAL, lock checks
 │   ├── markdown_to_ansi.py               ← Markdown → ANSI renderer for `view`
 │   ├── runtime.py                        ← Python 3.12+ version guard
@@ -814,6 +867,8 @@ opencode-db/
 │       ├── cmd_tree.py                   ← opencode-db tree
 │       ├── cmd_projects.py               ← opencode-db projects
 │       ├── cmd_stats.py                  ← opencode-db stats
+│       ├── cmd_backup.py                 ← opencode-db backup
+│       ├── cmd_backups.py                ← opencode-db backups
 │       ├── cmd_health.py                 ← opencode-db health
 │       ├── cmd_todos.py                  ← opencode-db todos
 │       ├── cmd_vacuum.py                 ← opencode-db vacuum
@@ -948,7 +1003,7 @@ opencode-db --lang en help        # English help text
 opencode-db --lang en stats       # English statistics
 ```
 
-The `--lang` flag applies to any command. All 405 UI strings are translated. Data content (session titles, project names, etc.) remains in its original language.
+The `--lang` flag applies to any command. All 478 UI strings are translated. Data content (session titles, project names, etc.) remains in its original language.
 
 The language can also be set via environment variable `OPENCODE_DB_LANG=en`.
 
@@ -1047,7 +1102,7 @@ source .venv/bin/activate
 uv pip install -e ".[rich]"
 uv pip install pytest ruff==0.17.1
 
-make check          # check-python + ruff + 254 tests
+make check          # check-python + ruff + 272 tests
 ```
 
 `make check` fails fast with a clear message if the active interpreter is older than 3.12.

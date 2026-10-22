@@ -10,10 +10,23 @@ import os
 # База данных opencode. Стандартное расположение для Linux/macOS.
 DEFAULT_DB = os.path.expanduser("~/.local/share/opencode/opencode.db")
 
+# Управляемые backup-снимки (не путать с sidecar *.bak.* от delete/vacuum).
+DEFAULT_BACKUP_DIR = os.path.expanduser("~/.local/share/opencode-db/backups")
+
 
 def get_db_path() -> str:
     """Текущий путь к БД с учётом OPENCODE_DB/--db-path."""
     return os.environ.get("OPENCODE_DB") or DEFAULT_DB
+
+
+def get_backup_dir() -> str:
+    """Каталог управляемых backup-снимков."""
+    return os.environ.get("OPENCODE_DB_BACKUP_DIR") or DEFAULT_BACKUP_DIR
+
+
+def is_read_only_source() -> bool:
+    """True, если текущая БД открыта из backup-снимка."""
+    return os.environ.get("OPENCODE_DB_READ_ONLY") == "1"
 
 
 def resolve_db_path() -> tuple[str, bool]:

@@ -210,19 +210,12 @@ def _parse_pids(output: str) -> list[int]:
     return [int(value) for value in re.findall(r"\d+", output)]
 
 
-def backup_database(
+def backup_to(
     conn: sqlite3.Connection,
-    db_path: str,
+    target: str,
     verify: bool = True,
 ) -> str:
-    """Создаёт консистентную копию через SQLite backup API."""
-    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    target = f"{db_path}.bak.{stamp}"
-    suffix = 1
-    while os.path.exists(target):
-        target = f"{db_path}.bak.{stamp}-{suffix}"
-        suffix += 1
-
+    """Создаёт консистентную копию в явно заданный файл."""
     dest = sqlite3.connect(target)
     try:
         conn.backup(dest)
@@ -246,6 +239,22 @@ def backup_database(
             raise MaintenanceError(f"backup verification failed: {result.message}")
 
     return target
+
+
+def backup_database(
+    conn: sqlite3.Connection,
+    db_path: str,
+    verify: bool = True,
+) -> str:
+    """Создаёт консистентную sidecar-копию рядом с БД."""
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    target = f"{db_path}.bak.{stamp}"
+    suffix = 1
+    while os.path.exists(target):
+        target = f"{db_path}.bak.{stamp}-{suffix}"
+        suffix += 1
+
+    return backup_to(conn, target, verify=verify)
 
 
 def free_space_check(db_path: str, with_backup: bool) -> FreeSpace:
