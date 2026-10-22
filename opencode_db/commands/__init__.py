@@ -11,6 +11,8 @@
 """
 
 from . import (
+    cmd_backup,
+    cmd_backups,
     cmd_costs,
     cmd_delete,
     cmd_directories,
@@ -33,6 +35,8 @@ from . import (
 # Словарь {имя_команды: модуль}
 # Модуль должен иметь register(subparsers) и run(args, db)
 COMMANDS = {
+    "backup": cmd_backup,
+    "backups": cmd_backups,
     "list": cmd_list,
     "info": cmd_info,
     "export": cmd_export,

@@ -113,6 +113,12 @@ class BaseStore:
                 return str(worktree).rstrip("/").rsplit("/", 1)[-1] or project_id[:12]
         return project_id[:12]
 
+    def get_max_updated(self) -> int | None:
+        row = self.conn.execute(
+            f"SELECT MAX(time_updated) FROM {self.session_table}"
+        ).fetchone()
+        return int(row[0]) if row and row[0] is not None else None
+
     def get_session_count(self, project_id: str | None = None) -> int:
         if project_id:
             return int(

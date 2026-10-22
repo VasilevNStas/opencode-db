@@ -21,6 +21,8 @@ opencode-db directories  # launch directories, including missing ones
 opencode-db view         # interactive session viewer (colored, scrollable)
 opencode-db stats        # database summary
 opencode-db health       # SQLite storage health (read-only)
+opencode-db backup       # managed, verified snapshot
+opencode-db backups list # inspect snapshots
 opencode-db schema       # detect v1/v2 schema
 opencode-db costs --total  # total token costs
 opencode-db export       # export dialog to .md (interactive)
@@ -35,10 +37,12 @@ opencode-db help         # full reference
 - **`export`** — экспорт диалога в Markdown (с поддержкой Obsidian)
 - **`delete`** / **`prune`** — удаление и массовая очистка с фильтрами; `prune --missing-directories` — защищённая очистка сессий из отсутствующих путей
 - **`costs`** / **`stats`** — аналитика токенов и расходов
-- **`health`** — read-only отчёт о freelist, WAL, `auto_vacuum` и оценке reclaimable space
+- **`health`** — read-only отчёт о freelist, WAL, `auto_vacuum`, оценке reclaimable space и свежести backup
+- **`backup`** / **`backups`** — управляемые снимки с manifest, sha256, gzip, verify и retention; `--from-backup` открывает снимок read-only
 - **`vacuum`** — безопасная оптимизация: lock check, backup, integrity check и сохранение WAL
 - **`schema`** — определяет v1/v2-схему OpenCode, миграции и доступные операции
 - **`--db-path`** / **`OPENCODE_DB`** — кастомный путь к БД
+- **`--from-backup`** — read-only работа с управляемым снимком (`.db` или `.db.gz`)
 
 ## Optional extras
 

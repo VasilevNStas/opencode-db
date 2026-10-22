@@ -8,6 +8,12 @@ NOW_TS = int(datetime.now(UTC).timestamp() * 1000)
 YESTERDAY_TS = NOW_TS - 86400000
 
 
+@pytest.fixture(autouse=True)
+def _isolate_backup_dir(tmp_path, monkeypatch):
+    """Keep tests away from the developer's real managed backups."""
+    monkeypatch.setenv("OPENCODE_DB_BACKUP_DIR", str(tmp_path / "backups"))
+
+
 @pytest.fixture
 def db():
     conn = sqlite3.connect(":memory:")

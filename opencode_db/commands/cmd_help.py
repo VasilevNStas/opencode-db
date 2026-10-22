@@ -147,6 +147,27 @@ _COMMANDS = [
         ],
     ),
     (
+        "backup",
+        "help.cmd.backup",
+        [
+            ("", "help.backup.e0"),
+            ("--dry-run", "help.backup.e1"),
+            ("--output ~/backups", "help.backup.e2"),
+            ("--no-compress", "help.backup.e3"),
+        ],
+    ),
+    (
+        "backups",
+        "help.cmd.backups",
+        [
+            ("list", "help.backups.e0"),
+            ("view <file>", "help.backups.e1"),
+            ("verify <file>", "help.backups.e2"),
+            ("remove <file>", "help.backups.e3"),
+            ("prune 5", "help.backups.e4"),
+        ],
+    ),
+    (
         "stats",
         "help.cmd.stats",
         [

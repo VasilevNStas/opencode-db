@@ -11,8 +11,9 @@ import json
 import os
 import sqlite3
 import sys
+from pathlib import Path
 
-from .config import resolve_db_path
+from .config import is_read_only_source, resolve_db_path
 from .i18n import _
 from .schema import SchemaFamily, detect_schema, schema_issues
 
@@ -64,7 +65,11 @@ def get_db(allow_unknown: bool = False) -> sqlite3.Connection:
         sys.exit(1)
     if used_fallback:
         print(_("db.next_fallback", path=db_path))
-    conn = sqlite3.connect(db_path)
+    if is_read_only_source():
+        uri = Path(db_path).resolve().as_uri() + "?mode=ro&immutable=1"
+        conn = sqlite3.connect(uri, uri=True)
+    else:
+        conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     if not verify_schema(conn) and not allow_unknown:
         conn.close()

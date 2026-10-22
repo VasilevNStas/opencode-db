@@ -1,8 +1,10 @@
 """Команда health: read-only отчёт о хранилище SQLite."""
 
 import argparse
+import os
 from typing import Literal
 
+from ..backups import backup_status
 from ..config import resolve_db_path
 from ..formatters import print_json
 from ..i18n import _
@@ -37,9 +39,14 @@ def run(args, db) -> Literal[0]:
     health = collect_health(db, db_path)
     schema = detect_schema(db)
     users = detect_db_users(db_path)
+    source_path = os.environ.get("OPENCODE_DB_BACKUP_PATH")
+    backup = {"status": "source"} if source_path else backup_status(db)
+    read_only = schema.read_only or bool(source_path)
 
     data = {
         "db_path": db_path,
+        "source_path": source_path,
+        "source": "backup" if source_path else "live",
         "file_size": health.file_size,
         "wal_size": health.wal_size,
         "shm_size": health.shm_size,
@@ -55,11 +62,13 @@ def run(args, db) -> Literal[0]:
         "journal_mode": health.journal_mode,
         "schema": schema.family.value,
         "schema_label": schema.label,
-        "read_only": schema.read_only,
+        "read_only": read_only,
+        "schema_read_only": schema.read_only,
         "in_use": users.in_use,
         "pids": list(users.pids),
         "lock_check_available": users.available,
         "lock_check_method": users.method,
+        "backup": backup,
     }
 
     if args.json:
@@ -70,6 +79,8 @@ def run(args, db) -> Literal[0]:
     print(f"  {_('health.title')}")
     print(f"  {'─' * 50}")
     print(f"  {_('health.path'):16s}: {db_path}")
+    if source_path:
+        print(f"  {_('health.source'):16s}: {_('health.source_backup', path=source_path)}")
     print(f"  {_('health.file'):16s}: {format_bytes(health.file_size)}")
     if health.wal_size:
         print(f"  {_('health.wal'):16s}: {format_bytes(health.wal_size)}")
@@ -85,9 +96,7 @@ def run(args, db) -> Literal[0]:
     print(f"  {_('health.auto_vacuum'):16s}: {auto_vacuum_label(health.auto_vacuum)}")
     print(f"  {_('health.journal'):16s}: {health.journal_mode}")
     print(f"  {_('health.schema'):16s}: {schema.label}")
-    print(
-        f"  {_('health.read_only'):16s}: {_('health.yes') if schema.read_only else _('health.no')}"
-    )
+    print(f"  {_('health.read_only'):16s}: {_('health.yes') if read_only else _('health.no')}")
 
     if not users.available:
         print(f"  {_('health.lock'):16s}: {_('health.lock_unknown')}")
@@ -96,5 +105,30 @@ def run(args, db) -> Literal[0]:
         print(f"  {_('health.lock'):16s}: {_('health.lock_in_use', pids=pids)}")
     else:
         print(f"  {_('health.lock'):16s}: {_('health.lock_free')}")
+
+    if source_path:
+        print()
+        return 0
+
+    status = backup.get("status")
+    if status == "none":
+        print(f"  {_('health.backup'):16s}: {_('health.backup_none')}")
+    elif status == "error":
+        print(f"  {_('health.backup'):16s}: {_('health.backup_error', error=backup['error'])}")
+    elif status == "aligned":
+        print(
+            f"  {_('health.backup'):16s}: "
+            f"{_('health.backup_aligned', file=backup['file'], date=backup['created_at'])}"
+        )
+    elif status == "out_of_sync":
+        print(
+            f"  {_('health.backup'):16s}: "
+            f"{_('health.backup_out_of_sync', file=backup['file'], date=backup['created_at'])}"
+        )
+    else:
+        print(
+            f"  {_('health.backup'):16s}: "
+            f"{_('health.backup_unknown', file=backup.get('file', '?'), error=backup.get('error', ''))}"
+        )
     print()
     return 0
