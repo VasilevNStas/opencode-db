@@ -139,6 +139,14 @@ _COMMANDS = [
         ],
     ),
     (
+        "health",
+        "help.cmd.health",
+        [
+            ("", "help.health.e0"),
+            ("--json", "help.health.e1"),
+        ],
+    ),
+    (
         "stats",
         "help.cmd.stats",
         [
@@ -162,6 +170,8 @@ _COMMANDS = [
         [
             ("", "help.vacuum.e0"),
             ("--force", "help.vacuum.e1"),
+            ("--no-backup", "help.vacuum.e2"),
+            ("--auto-vacuum", "help.vacuum.e3"),
         ],
     ),
 ]

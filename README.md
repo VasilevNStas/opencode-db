@@ -17,6 +17,7 @@ opencode-db --version     # installed version
 opencode-db help        # full reference with examples
 opencode-db list        # list recent sessions
 opencode-db stats       # database summary
+opencode-db health      # SQLite storage health (read-only)
 opencode-db schema      # detect v1/v2 schema
 opencode-db export      # save a dialog to .md (interactive)
 opencode-db costs --total  # total token costs
@@ -611,7 +612,30 @@ Supported families:
 | 1.19.x | v1 | read + write |
 | 2.x preview | v2 | read-only |
 
-On a v2 database, `delete`, `prune`, and `vacuum` are refused until write support is implemented. Detection is based on tables and the migration journal, not on the OpenCode version string.
+On a v2 database, `health` and the other read-only commands work; `delete`, `prune`, and `vacuum` are refused until write support is implemented. Detection is based on tables and the migration journal, not on the OpenCode version string.
+
+---
+
+### `health` — SQLite storage health
+
+Read-only report about how the SQLite file is laid out. It does not scan messages or parts and does not change the database.
+
+```bash
+opencode-db health                        # human-readable report
+opencode-db health --json                 # stable JSON output
+```
+
+The report includes:
+
+- database path and main file / WAL / SHM sizes;
+- `page_size`, `page_count`, `freelist_count`;
+- live data, freelist bytes and percentage;
+- estimated space that `VACUUM` could reclaim;
+- `auto_vacuum` and `journal_mode`;
+- schema family and read-only status;
+- whether `lsof`/`fuser` see another process holding the database.
+
+A non-zero freelist means the file contains free pages left after deletes. `VACUUM` can return that space to the filesystem. If the freelist is already zero, there is usually little to reclaim.
 
 ---
 
@@ -635,18 +659,70 @@ opencode-db todos --json                  # JSON output
 
 ---
 
-### `vacuum` — database optimization
+### `vacuum` — safe database optimization
 
-Runs `VACUUM`, `REINDEX`, and `ANALYZE` to reclaim disk space and optimize query performance. Especially useful after bulk deletions (prune, delete).
+Runs a guarded maintenance sequence:
+
+1. checks that the schema is writable (v2 is refused);
+2. checks whether another process is holding the database;
+3. checks free disk space;
+4. runs `quick_check` (or full `integrity_check` with `--full-check`);
+5. checkpoints the WAL;
+6. creates and verifies a backup;
+7. optionally enables `auto_vacuum = INCREMENTAL`;
+8. runs `VACUUM`;
+9. verifies that `journal_mode` is still `wal` when it started as WAL;
+10. runs `REINDEX` and `ANALYZE`;
+11. runs a final integrity check and reports reclaimed space.
 
 ```bash
-opencode-db vacuum                        # with confirmation
-opencode-db vacuum --force                # without confirmation
+opencode-db vacuum                        # backup + confirmation
+opencode-db vacuum --force                # skip confirmation
+opencode-db vacuum --no-backup            # no backup (not recommended)
+opencode-db vacuum --auto-vacuum          # enable incremental auto-vacuum
 ```
 
 | Flag | Description |
 |---|---|
-| `--force`, `-f` | Skip confirmation |
+| `--force`, `-f` | Skip the confirmation prompt only |
+| `--backup` | Create a verified backup (default) |
+| `--no-backup` | Do not create a backup (not recommended) |
+| `--skip-lock-check` | Continue if the database may be in use |
+| `--full-check` | Use full `integrity_check` instead of `quick_check` |
+| `--auto-vacuum` | Enable `auto_vacuum = INCREMENTAL` permanently |
+
+`--force` does **not** bypass lock checks, integrity checks, backup defaults or free-space checks.
+
+#### Disk space and backup
+
+`VACUUM` rebuilds the database and temporarily needs free space roughly equal to the database size. A backup needs about the same amount again. With the default backup enabled, expect roughly `2 × database size` of free space.
+
+The backup is a consistent SQLite copy next to the database:
+
+```text
+opencode.db.bak.20261022-130156
+```
+
+The exact path is printed before the operation. If something goes wrong:
+
+1. stop OpenCode;
+2. restore the backup over `opencode.db`;
+3. remove stale `opencode.db-wal` / `opencode.db-shm` files;
+4. start OpenCode again.
+
+Use `--no-backup` only if you already have an external backup. The command prints a warning when backup is disabled.
+
+#### WAL and journal mode
+
+WAL (write-ahead logging) lets OpenCode write new data to `opencode.db-wal` while readers continue to use the database. A checkpoint copies committed WAL frames back into the main file.
+
+`VACUUM` does **not** require disabling WAL in modern SQLite. `opencode-db` checkpoints the WAL before maintenance and verifies the journal mode afterwards. If the database started in WAL mode and the mode changed, the command restores WAL. It never switches a non-WAL database to WAL.
+
+`VACUUM` does not delete sessions, messages or chat history. It only repacks the database file and removes free pages.
+
+#### Close OpenCode first
+
+The process check is best-effort: it uses `lsof`, then `fuser`, excluding the current process. Close OpenCode before running vacuum. If neither tool is available, the command refuses to continue unless you pass `--skip-lock-check`.
 
 ---
 
@@ -703,8 +779,9 @@ Example output:
 | `tree` | Session branching tree | `--depth`, `--project` |
 | `projects` | Project overview | `--json` |
 | `stats` | Database statistics | `--json` |
+| `health` | SQLite storage health | `--json` |
 | `todos` | View session tasks | `--status`, `--json` |
-| `vacuum` | Database optimization | `--force` |
+| `vacuum` | Safe database optimization | `--force`, `--no-backup`, `--auto-vacuum` |
 | `help` | Detailed reference | `<command>`, `--json` |
 
 ---
@@ -720,7 +797,8 @@ opencode-db/
 │   ├── config.py                         ← constants and paths
 │   ├── db.py                             ← SQLite queries
 │   ├── formatters.py                     ← tables, JSON, Markdown, snapshots
-│   ├── i18n.py                           ← localization (EN/RU, 348 keys)
+│   ├── i18n.py                           ← localization (EN/RU, 405 keys)
+│   ├── maintenance.py                    ← backup, integrity, WAL, lock checks
 │   ├── markdown_to_ansi.py               ← Markdown → ANSI renderer for `view`
 │   ├── runtime.py                        ← Python 3.12+ version guard
 │   ├── utils.py                          ← date/token formatting, validation
@@ -736,6 +814,7 @@ opencode-db/
 │       ├── cmd_tree.py                   ← opencode-db tree
 │       ├── cmd_projects.py               ← opencode-db projects
 │       ├── cmd_stats.py                  ← opencode-db stats
+│       ├── cmd_health.py                 ← opencode-db health
 │       ├── cmd_todos.py                  ← opencode-db todos
 │       ├── cmd_vacuum.py                 ← opencode-db vacuum
 │       ├── cmd_view.py                   ← opencode-db view
@@ -869,7 +948,7 @@ opencode-db --lang en help        # English help text
 opencode-db --lang en stats       # English statistics
 ```
 
-The `--lang` flag applies to any command. All 348 UI strings are translated. Data content (session titles, project names, etc.) remains in its original language.
+The `--lang` flag applies to any command. All 405 UI strings are translated. Data content (session titles, project names, etc.) remains in its original language.
 
 The language can also be set via environment variable `OPENCODE_DB_LANG=en`.
 
@@ -907,9 +986,23 @@ OpenCode has not been started yet, or the database is stored in a non-standard l
 
 Use a longer prefix or the full session ID (use `list --json` to find it).
 
-### VACUUM fails
+### VACUUM fails or refuses to start
 
-If the database is being used by another process (e.g., OpenCode is running), VACUUM may fail. Close OpenCode and try again.
+`vacuum` now checks safety conditions before doing any work:
+
+- **Database is open** — close OpenCode and any `sqlite3` process using the file.
+  The command prints the PIDs. If you are certain the database is unused, pass
+  `--skip-lock-check`.
+- **Lock check unavailable** — install `lsof` or `fuser`, or pass
+  `--skip-lock-check` after closing OpenCode.
+- **Not enough free space** — `VACUUM` needs roughly the database size and the
+  default backup needs another copy. Free space or use `--no-backup` (not
+  recommended).
+- **Integrity check failed** — restore the latest backup; do not run `VACUUM`
+  on a corrupted file.
+
+The command never deletes sessions or chat history. If `VACUUM` itself fails,
+the database file remains intact; the backup path is printed in the output.
 
 ### `ImportError: cannot import name 'UTC' from 'datetime'`
 
@@ -954,7 +1047,7 @@ source .venv/bin/activate
 uv pip install -e ".[rich]"
 uv pip install pytest ruff==0.17.1
 
-make check          # check-python + ruff + 224 tests
+make check          # check-python + ruff + 254 tests
 ```
 
 `make check` fails fast with a clear message if the active interpreter is older than 3.12.

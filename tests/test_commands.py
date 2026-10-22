@@ -367,24 +367,45 @@ class TestTodosCommand:
 class TestVacuumCommand:
     def test_vacuum_canceled(self, db) -> None:
         from opencode_db.commands.cmd_vacuum import run
+        from opencode_db.maintenance import DbUsers
 
         args = _ns(force=False)
-        with patch("opencode_db.commands.cmd_vacuum.confirm", return_value=False):
+        with (
+            patch(
+                "opencode_db.commands.cmd_vacuum.resolve_db_path",
+                return_value=("/tmp/nonexistent.db", False),
+            ),
+            patch(
+                "opencode_db.commands.cmd_vacuum.detect_db_users",
+                return_value=DbUsers(True, method="lsof"),
+            ),
+            patch("opencode_db.commands.cmd_vacuum.confirm", return_value=False),
+        ):
             assert run(args, db) == 0
 
-    def test_vacuum_with_force(self, db_file) -> None:
+    def test_vacuum_with_force(self, db_file, tmp_path) -> None:
         import sqlite3
-        from unittest.mock import patch
+
+        from opencode_db.commands.cmd_vacuum import run
+        from opencode_db.maintenance import DbUsers
 
         conn = sqlite3.connect(db_file)
         conn.row_factory = sqlite3.Row
 
-        from opencode_db.commands.cmd_vacuum import run
-
         args = _ns(force=True)
-        with patch("opencode_db.commands.cmd_vacuum.get_db_path", return_value=db_file):
+        with (
+            patch(
+                "opencode_db.commands.cmd_vacuum.resolve_db_path",
+                return_value=(db_file, False),
+            ),
+            patch(
+                "opencode_db.commands.cmd_vacuum.detect_db_users",
+                return_value=DbUsers(True, method="lsof"),
+            ),
+        ):
             assert run(args, conn) == 0
 
+        assert list(tmp_path.glob("test.db.bak.*"))
         conn.close()
 
 
@@ -726,7 +747,15 @@ class TestDirectoriesCommand:
     def test_directories_missing_and_existing_conflict(self, db) -> None:
         from opencode_db.commands.cmd_directories import run
 
-        args = _ns(missing=True, existing=True, project=None, sort="date", limit=50, no_check=True, json=True)
+        args = _ns(
+            missing=True,
+            existing=True,
+            project=None,
+            sort="date",
+            limit=50,
+            no_check=True,
+            json=True,
+        )
         assert run(args, db) == 1
 
     def test_list_directory_json(self, db, capsys) -> None:
@@ -757,7 +786,6 @@ class TestDirectoriesCommand:
         assert by_id["proj_002"]["name"] == "proj2"
         assert by_id["proj_002"]["path"] == "/home/user/proj2"
         assert by_id["proj_002"]["exists"] is False
-
 
     def test_dirs_alias_is_registered(self, db) -> None:
         from opencode_db.cli import build_parser
@@ -860,10 +888,13 @@ class TestMissingDirectoryCleanup:
             patch("builtins.input", return_value="DELETE 1 SESSIONS"),
             patch("opencode_db.commands.cmd_delete.confirm", return_value=True),
         ):
-            assert run(
-                self._args(execute=True, no_backup=True),
-                conn,
-            ) == 0
+            assert (
+                run(
+                    self._args(execute=True, no_backup=True),
+                    conn,
+                )
+                == 0
+            )
 
         assert conn.execute("SELECT COUNT(*) FROM session").fetchone()[0] == 3
         assert conn.execute("SELECT id FROM session WHERE id = 'ses_001'").fetchone() is not None
@@ -886,12 +917,8 @@ class TestMissingDirectoryCleanup:
             CREATE TABLE event (id TEXT, aggregate_id TEXT, seq INTEGER, type TEXT, data TEXT);
             """
         )
-        conn.execute(
-            "INSERT INTO event_sequence VALUES ('ses_002', 1, NULL)"
-        )
-        conn.execute(
-            "INSERT INTO event VALUES ('evt_1', 'ses_002', 1, 'test', '{}')"
-        )
+        conn.execute("INSERT INTO event_sequence VALUES ('ses_002', 1, NULL)")
+        conn.execute("INSERT INTO event VALUES ('evt_1', 'ses_002', 1, 'test', '{}')")
         conn.commit()
 
         with (
