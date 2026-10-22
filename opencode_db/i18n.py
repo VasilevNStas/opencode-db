@@ -205,6 +205,17 @@ L: dict[str, dict[str, str]] = {
     "delete.messages": {"ru": "Сообщений", "en": "Messages"},
     "delete.parts": {"ru": "Частей", "en": "Parts"},
     "delete.cost": {"ru": "Стоимость", "en": "Cost"},
+    "delete.children": {"ru": "Дочерних сессий", "en": "Child sessions"},
+    "delete.children_more": {"ru": "ещё {n}", "en": "{n} more"},
+    "delete.done_children": {
+        "ru": "   Дочерних: {n}, всего строк удалено: {rows}",
+        "en": "   Children: {n}, rows deleted: {rows}",
+    },
+    "delete.error": {"ru": "❌ Ошибка удаления: {error}", "en": "❌ Delete failed: {error}"},
+    "delete.with_children_scope": {
+        "ru": "❌ --with-children работает только с session_id или --missing-directories",
+        "en": "❌ --with-children works only with session_id or --missing-directories",
+    },
     "delete.dry_run": {
         "ru": "  🔍 Сухой запуск — ничего не удалено.",
         "en": "  🔍 Dry run — nothing deleted.",
@@ -255,6 +266,14 @@ L: dict[str, dict[str, str]] = {
     "delete.missing_none": {
         "ru": "  ✅ Сессий из отсутствующих директорий не найдено.",
         "en": "  ✅ No sessions from missing directories found.",
+    },
+    "delete.missing_children": {
+        "ru": "  Дочерних сессий: {n} (из существующих директорий: {existing})",
+        "en": "  Child sessions: {n} (from existing directories: {existing})",
+    },
+    "delete.missing_existing_child": {
+        "ru": "    + {id}  {title}  (существующая директория: {path})",
+        "en": "    + {id}  {title}  (existing directory: {path})",
     },
     "delete.missing_summary": {
         "ru": "  Сессий: {sessions}, директорий: {dirs}, стоимость: {cost}",
@@ -896,6 +915,10 @@ L: dict[str, dict[str, str]] = {
     "help.export.e10": {"ru": "Все сессии", "en": "All sessions"},
     "help.export.e11": {"ru": "Включить дочерние сессии", "en": "Include child sessions"},
     "help.export.e12": {"ru": "Без дочерних сессий", "en": "Exclude child sessions"},
+    "help.export.e13": {
+        "ru": "Best-effort redaction секретов",
+        "en": "Best-effort secret redaction",
+    },
     "help.cmd.digest": {"ru": "Compaction-сводки сессии", "en": "Session compaction digests"},
     "help.digest.e0": {"ru": "Все compaction-сводки", "en": "All compaction digests"},
     "help.digest.e1": {"ru": "Последние 3 сводки", "en": "Last 3 digests"},
@@ -923,6 +946,14 @@ L: dict[str, dict[str, str]] = {
         "ru": "Выполнить очистку после подтверждений",
         "en": "Execute cleanup after confirmations",
     },
+    "help.delete.e9": {
+        "ru": "Удалить сессию и всех потомков",
+        "en": "Delete a session and all descendants",
+    },
+    "help.delete.e10": {
+        "ru": "Очистка отсутствующих директорий вместе с потомками",
+        "en": "Missing-directory cleanup including descendants",
+    },
     "help.prune.e4": {
         "ru": "Preview очистки отсутствующих директорий",
         "en": "Preview missing-directory cleanup",
@@ -930,6 +961,10 @@ L: dict[str, dict[str, str]] = {
     "help.prune.e5": {
         "ru": "Выполнить очистку отсутствующих директорий",
         "en": "Execute missing-directory cleanup",
+    },
+    "help.prune.e6": {
+        "ru": "Очистка отсутствующих директорий с потомками",
+        "en": "Missing-directory cleanup with descendants",
     },
     "help.delete.e6": {
         "ru": "Интерактивный выбор из списка",

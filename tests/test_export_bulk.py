@@ -119,3 +119,17 @@ def test_root_selection_includes_orphans_and_excludes_children(db) -> None:
     assert "ses_001" in roots
     assert "ses_002" not in roots
     assert store.get_descendant_ids("ses_001") == ["ses_002"]
+
+
+def test_bulk_export_sanitizes_index_and_metadata(db, tmp_path) -> None:
+    secret = "sk-proj-" + "A" * 32
+    db.execute("UPDATE session SET title = ? WHERE id = ?", (f"Key {secret}", "ses_001"))
+    db.commit()
+
+    assert run(_args(last=2, sanitize=True, output=str(tmp_path)), db) == 0
+    bundle = _bundle(tmp_path)
+    index = (bundle / "index.md").read_text(encoding="utf-8")
+    metadata = (bundle / "metadata.json").read_text(encoding="utf-8")
+    assert secret not in index
+    assert secret not in metadata
+    assert "[REDACTED]" in index

@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from ..db import SessionError
 from ..formatters import collect_snapshot, format_part_to_md, update_log
 from ..i18n import _
+from ..sanitize import redact, sanitize_obj
 from ..store import open_store
 from ..utils import build_help_epilog, format_cost, format_ts, parse_date
 from ..version import get_version
@@ -34,6 +35,7 @@ _EXPORT_EXAMPLES = [
     ("--all", "help.export.e10"),
     ("--with-subagents", "help.export.e11"),
     ("--no-subagents", "help.export.e12"),
+    ("--sanitize", "help.export.e13"),
 ]
 
 
@@ -71,6 +73,11 @@ def register(subparsers) -> None:
         default="md",
         help="Export format (md or lossless json)",
     )
+    p.add_argument(
+        "--sanitize",
+        action="store_true",
+        help="Best-effort redaction of high-confidence secrets",
+    )
     p.add_argument("--note", "-n", type=str, help="Description for log.md")
     p.add_argument(
         "--output",
@@ -102,7 +109,7 @@ def _export_latest(store, output_dir, force, note, full, fmt) -> int:
     return _do_export(store, session_info, output_dir, force, note, full, fmt)
 
 
-def _export_interactive(store, output_dir, force, note, full, fmt) -> int:
+def _export_interactive(store, output_dir, force, note, full, fmt, sanitize=False) -> int:
     sessions = store.get_recent_sessions()
 
     if not sessions:
@@ -149,7 +156,7 @@ def _export_interactive(store, output_dir, force, note, full, fmt) -> int:
     except SessionError as e:
         print(e.message)
         return 1
-    return _do_export(store, session_info, output_dir, force, note, full, fmt)
+    return _do_export(store, session_info, output_dir, force, note, full, fmt, sanitize=sanitize)
 
 
 def _export_filename(session_info, output_dir: str, extension: str) -> str:
@@ -169,6 +176,7 @@ def _do_export(
     filename_override=None,
     quiet=False,
     update_obsidian=True,
+    sanitize=False,
 ) -> int:
     """Внутренняя функция: экспорт диалога."""
     if fmt == "json":
@@ -179,6 +187,7 @@ def _do_export(
             force,
             filename_override=filename_override,
             quiet=quiet,
+            sanitize=sanitize,
         )
 
     title = store.get_session_title(session_info)
@@ -235,6 +244,8 @@ def _do_export(
         md_body.append("")
 
     content = md_header + "\n".join(md_body)
+    if sanitize:
+        content = redact(content)
 
     with open(filename, "w", encoding="utf-8") as f:
         f.write(content)
@@ -263,6 +274,7 @@ def _do_export_json(
     force,
     filename_override=None,
     quiet=False,
+    sanitize=False,
 ) -> int:
     filename = filename_override or _export_filename(session_info, output_dir, "json")
     if os.path.isfile(filename) and not force:
@@ -279,6 +291,8 @@ def _do_export_json(
         "exported_at": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "session": session_row,
     }
+    if sanitize:
+        header = sanitize_obj(header)
 
     count = 0
     try:
@@ -289,6 +303,8 @@ def _do_export_json(
             handle.write('  "messages": [\n')
             first = True
             for message in store.iter_raw_messages(session_info["id"]):
+                if sanitize:
+                    message = sanitize_obj(message)
                 data = message.get("data")
                 if isinstance(data, dict):
                     message.setdefault("type", data.get("type") or data.get("role") or "unknown")
@@ -357,7 +373,18 @@ def _bundle_dir(output_dir: str) -> str:
     return path
 
 
-def _write_bundle_index(bundle: str, records, rule: str, value, fmt: str) -> None:
+def _write_bundle_index(
+    bundle: str,
+    records,
+    rule: str,
+    value,
+    fmt: str,
+    sanitize: bool = False,
+) -> None:
+    if sanitize:
+        rule = redact(str(rule))
+        value = redact(str(value))
+        records = sanitize_obj(records)
     lines = [
         f"# {_('export.bundle_title')}",
         "",
@@ -390,6 +417,7 @@ def _run_bulk(
     rule: str,
     value,
     with_subagents: bool,
+    sanitize: bool = False,
 ) -> int:
     selected = []
     seen = set()
@@ -465,6 +493,7 @@ def _run_bulk(
                 filename_override=os.path.join(bundle, *relative.split("/")),
                 quiet=True,
                 update_obsidian=False,
+                sanitize=sanitize,
             )
             if code != 0:
                 raise RuntimeError(f"export failed for {record['id']}")
@@ -491,10 +520,12 @@ def _run_bulk(
             },
             "sessions": records,
         }
+        if sanitize:
+            metadata = sanitize_obj(metadata)
         with open(os.path.join(bundle, "metadata.json"), "w", encoding="utf-8") as handle:
             json.dump(metadata, handle, ensure_ascii=False, indent=2, default=str)
             handle.write("\n")
-        _write_bundle_index(bundle, records, rule, value, fmt)
+        _write_bundle_index(bundle, records, rule, value, fmt, sanitize=sanitize)
     except Exception:
         shutil.rmtree(bundle, ignore_errors=True)
         raise
@@ -525,6 +556,7 @@ def run(args, db) -> int:
     output_dir = args.output or os.getcwd()
     full = args.full
     fmt = getattr(args, "format", "md")
+    sanitize = getattr(args, "sanitize", False)
 
     error = _selection_error(args)
     if error:
@@ -549,8 +581,18 @@ def run(args, db) -> int:
                 "session",
                 session_info["id"],
                 True,
+                sanitize=sanitize,
             )
-        return _do_export(store, session_info, output_dir, args.force, args.note, full, fmt)
+        return _do_export(
+            store,
+            session_info,
+            output_dir,
+            args.force,
+            args.note,
+            full,
+            fmt,
+            sanitize=sanitize,
+        )
 
     if args.latest:
         try:
@@ -570,8 +612,18 @@ def run(args, db) -> int:
                 "latest",
                 session_info["id"],
                 True,
+                sanitize=sanitize,
             )
-        return _do_export(store, session_info, output_dir, args.force, args.note, full, fmt)
+        return _do_export(
+            store,
+            session_info,
+            output_dir,
+            args.force,
+            args.note,
+            full,
+            fmt,
+            sanitize=sanitize,
+        )
 
     if _bulk_requested(args):
         if args.last is not None:
@@ -585,6 +637,7 @@ def run(args, db) -> int:
                 "last",
                 args.last,
                 not args.no_subagents,
+                sanitize=sanitize,
             )
         if args.since:
             since = parse_date(args.since)
@@ -599,6 +652,7 @@ def run(args, db) -> int:
                 "since",
                 args.since,
                 args.with_subagents,
+                sanitize=sanitize,
             )
         if args.project:
             return _run_bulk(
@@ -611,6 +665,7 @@ def run(args, db) -> int:
                 "project",
                 args.project,
                 args.with_subagents,
+                sanitize=sanitize,
             )
         if args.all:
             return _run_bulk(
@@ -623,6 +678,9 @@ def run(args, db) -> int:
                 "all",
                 True,
                 args.with_subagents,
+                sanitize=sanitize,
             )
 
-    return _export_interactive(store, output_dir, args.force, args.note, full, fmt)
+    return _export_interactive(
+        store, output_dir, args.force, args.note, full, fmt, sanitize=sanitize
+    )

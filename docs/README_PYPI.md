@@ -37,7 +37,7 @@ opencode-db help         # full reference
 - **`view`** — terminal session viewer with ANSI colors, Markdown rendering, and `less` scrolling
 - **`list`** / **`info`** / **`search`** / **`tree`** — browse and search sessions
 - **`directories`** (`dirs`) — every launch directory, including missing ones; `list --directory` adds the path to each session
-- **`export`** — Markdown or lossless JSON; preserves `patch`, `file`, `compaction`, `step-*`, and unknown part types; unique `opencode-<date>-<short_id>` filenames
+- **`export`** — Markdown or lossless JSON; preserves `patch`, `file`, `compaction`, `step-*`, and unknown part types; unique `opencode-<date>-<short_id>` filenames; opt-in `--sanitize` secret redaction
 - **`export --last/--since/--project/--all`** — bulk bundles with `index.md`, `metadata.json`, root transcripts, and `subagents/`; `--with-subagents`/`--no-subagents` controls cascade
 - **`digest`** — compaction summaries for v1 and v2 sessions, with `--last N` and `--json`
 - **`delete`** / **`prune`** — single and bulk cleanup; `prune --missing-directories` is preview-first and guarded
@@ -54,7 +54,7 @@ opencode-db help         # full reference
 - **`view`** — просмотр сессии в терминале с ANSI-цветами, Markdown-рендерингом и прокруткой через `less`
 - **`list`** / **`info`** / **`search`** / **`tree`** — навигация и поиск по сессиям
 - **`directories`** (`dirs`) — все директории запусков, включая отсутствующие; `list --directory` добавляет путь к сессии
-- **`export`** — Markdown или lossless JSON; сохраняет `patch`, `file`, `compaction`, `step-*` и неизвестные типы частей; уникальные имена `opencode-<date>-<short_id>`
+- **`export`** — Markdown или lossless JSON; сохраняет `patch`, `file`, `compaction`, `step-*` и неизвестные типы частей; уникальные имена `opencode-<date>-<short_id>`; opt-in `--sanitize` для redaction секретов
 - **`export --last/--since/--project/--all`** — массовые bundles с `index.md`, `metadata.json`, transcript'ами root и `subagents/`; `--with-subagents`/`--no-subagents` управляет cascade
 - **`digest`** — compaction-сводки для v1 и v2, с `--last N` и `--json`
 - **`delete`** / **`prune`** — удаление и массовая очистка; `prune --missing-directories` работает через preview и guard'ы
